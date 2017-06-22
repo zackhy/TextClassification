@@ -14,12 +14,13 @@ class config(object):
     num_classes = 3
     batch_size = 30
     vocab_size = 20000
-    embedding_size = 1500
-    hidden_size = 1500
+    embedding_size = 128
+    hidden_size = 128
     num_layers = 3
-    learning_rate = 0.001
-    keep_prob = 0.5
+    learning_rate = 0.0001
+    keep_prob = 0.3
     num_epochs = 50
+    l2_reg_lambda = 0.005
 
 
 def run_epoch(data, model, sess, train_op=None):
@@ -42,7 +43,7 @@ def run_epoch(data, model, sess, train_op=None):
     return cost, accuracy
 
 def main():
-    data, labels, idx_2_w, vocab_size = data_helper.load_data(file_path='data.csv',
+    data, labels, idx_2_w, vocab_size = data_helper.load_data(file_path='sample.csv',
                                                               sw_path='stop_words_ch.txt',
                                                               save_path='data/',
                                                               vocab_size=config.vocab_size)
@@ -61,6 +62,7 @@ def main():
                             num_layers=config.num_layers,
                             learning_rate=config.learning_rate,
                             keep_prob=config.keep_prob,
+                            l2_reg_lambda=config.l2_reg_lambda,
                             is_training=True)
             tf.summary.scalar('Training loss', m.cost)
             tf.summary.scalar('Training accuracy', m.accuracy)
@@ -75,6 +77,7 @@ def main():
                                  num_layers=config.num_layers,
                                  learning_rate=config.learning_rate,
                                  keep_prob=config.keep_prob,
+                                 l2_reg_lambda=config.l2_reg_lambda,
                                  is_training=False)
             tf.summary.scalar('Validation loss', mvalid.cost)
             tf.summary.scalar('Validation accuracy', mvalid.accuracy)
@@ -106,7 +109,7 @@ def main():
                     total_train_accuracy += train_accuracy
 
                     if train_step % 200 == 0:
-                        print('Epoch: {}, Step: {}, Loss: {}, Accuracy: {}'.format(i,
+                        print('Batch: {}, Step: {}, Loss: {}, Accuracy: {}'.format(i,
                                                                                    train_step,
                                                                                    train_cost,
                                                                                    train_accuracy))
@@ -124,10 +127,10 @@ def main():
                 end = time.time()
                 runtime = end - start
 
-                print('Epoch: {}, Train loss: {}, Train accuracy: {}'.format(i,
+                print('Batch: {}, Train loss: {}, Train accuracy: {}'.format(i,
                                                                              total_train_cost / train_step,
                                                                              total_train_accuracy / train_step))
-                print('Epoch: {}, Valid loss: {}, Valid accuracy: {}'.format(i,
+                print('Batch: {}, Valid loss: {}, Valid accuracy: {}'.format(i,
                                                                              total_valid_cost / valid_step,
                                                                              total_valid_accuracy / valid_step))
                 print('Run time: {}'.format(runtime))
