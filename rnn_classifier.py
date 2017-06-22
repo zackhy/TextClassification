@@ -11,12 +11,16 @@ class rnn_clf(object):
                  num_layers,  # int
                  learning_rate,  # float
                  keep_prob,  # float
+                 l2_reg_lambda=0.0,  # float
                  is_training=True,  # boolean
                  ):
 
         self.input_x = tf.placeholder(dtype=tf.int32, shape=[batch_size, None])
         self.input_y = tf.placeholder(dtype=tf.int64, shape=batch_size)
         self.sequence_length = tf.placeholder(dtype=tf.int32, shape=batch_size)
+
+        # L2 loss
+        l2_loss = tf.constant(0.0)
 
         # LSTM Cell
         cell = tf.contrib.rnn.LSTMCell(hidden_size,
@@ -34,9 +38,8 @@ class rnn_clf(object):
 
         # Word embedding
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            embedding = tf.get_variable('embedding',
-                                        shape=[vocab_size, embedding_size],
-                                        dtype=tf.float32)
+            embedding = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0),
+                                    name='embedding')
             inputs = tf.nn.embedding_lookup(embedding, self.input_x)
 
         # Input dropout
@@ -57,6 +60,9 @@ class rnn_clf(object):
         with tf.name_scope('Softmax'):
             softmax_w = tf.get_variable('softmax_w', shape=[hidden_size, num_classes], dtype=tf.float32)
             softmax_b = tf.get_variable('softmax_b', shape=[num_classes], dtype=tf.float32)
+            # Add l2 regularization
+            l2_loss += tf.nn.l2_loss(softmax_w)
+            l2_loss += tf.nn.l2_loss(softmax_b)
             self.logits = tf.matmul(self.final_state[num_layers - 1].h, softmax_w) + softmax_b
             predictions = tf.nn.softmax(self.logits)
             self.predictions = tf.argmax(predictions, 1)
@@ -65,7 +71,7 @@ class rnn_clf(object):
         with tf.name_scope('Loss'):
             loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_y,
                                                                   logits=self.logits)
-            self.cost = tf.reduce_mean(loss)
+            self.cost = tf.reduce_mean(loss) + l2_reg_lambda * l2_loss
 
         # Accuracy
         with tf.name_scope('Accuracy'):
@@ -78,4 +84,3 @@ class rnn_clf(object):
 
         # Optimizer
         self.train_op = tf.train.AdamOptimizer(learning_rate).minimize(self.cost)
-        self.merged_summary_op = tf.summary.merge_all()
