@@ -98,8 +98,16 @@ def load_data(file_path, sw_path, save_path=None, vocab_size=10000):
     return data, labels, idx_2_w, len(idx_2_w)
 
 
-def batch_iter(data, labels, batch_size):
-    epoch_length = len(data) // batch_size
+def batch_iter(data, labels, batch_size, shuffle=True):
+    data = np.array(data)
+    labels = np.array(labels)
+    data_size = len(data)
+    epoch_length = data_size // batch_size
+
+    if shuffle:
+        shuffle_indices = np.random.permutation(np.arange(data_size))
+        data = data[shuffle_indices]
+        labels = labels[shuffle_indices]
 
     for i in range(epoch_length):
         start_index = i * batch_size
@@ -167,6 +175,10 @@ if __name__ == '__main__':
     # Tiny example for test
     data, labels, idx_2_w_a, _ = load_data('test.csv', 'stop_words_ch.txt', save_path='data')
     for data in batch_iter(data, labels, batch_size=1):
-        print(data)
+        sentence, label, length = data
+        str = ''
+        for word in sentence[0]:
+            str += idx_2_w_a[word]
+        print(str, label, length)
     w_2_idx, idx_2_w_b = restore_data('data/maps.txt')
     assert idx_2_w_a == idx_2_w_b
