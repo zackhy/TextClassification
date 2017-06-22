@@ -42,7 +42,7 @@ def run_epoch(data, model, sess, train_op=None):
     return cost, accuracy
 
 def main():
-    data, labels, idx_2_w, vocab_size = data_helper.load_data(file_path='sample.csv',
+    data, labels, idx_2_w, vocab_size = data_helper.load_data(file_path='data.csv',
                                                               sw_path='stop_words_ch.txt',
                                                               save_path='data/',
                                                               vocab_size=config.vocab_size)
@@ -106,7 +106,7 @@ def main():
                     total_train_accuracy += train_accuracy
 
                     if train_step % 200 == 0:
-                        print('Batch: {}, Step: {}, Loss: {}, Accuracy: {}'.format(i,
+                        print('Epoch: {}, Step: {}, Loss: {}, Accuracy: {}'.format(i,
                                                                                    train_step,
                                                                                    train_cost,
                                                                                    train_accuracy))
@@ -124,10 +124,10 @@ def main():
                 end = time.time()
                 runtime = end - start
 
-                print('Batch: {}, Train loss: {}, Train accuracy: {}'.format(i,
+                print('Epoch: {}, Train loss: {}, Train accuracy: {}'.format(i,
                                                                              total_train_cost / train_step,
                                                                              total_train_accuracy / train_step))
-                print('Batch: {}, Valid loss: {}, Valid accuracy: {}'.format(i,
+                print('Epoch: {}, Valid loss: {}, Valid accuracy: {}'.format(i,
                                                                              total_valid_cost / valid_step,
                                                                              total_valid_accuracy / valid_step))
                 print('Run time: {}'.format(runtime))
