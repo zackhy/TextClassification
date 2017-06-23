@@ -20,7 +20,7 @@ class rnn_clf(object):
         self.sequence_length = tf.placeholder(dtype=tf.int32, shape=batch_size)
 
         # L2 loss
-        l2_loss = tf.constant(0.0)
+        self.l2_loss = tf.constant(0.0)
 
         # LSTM Cell
         cell = tf.contrib.rnn.LSTMCell(hidden_size,
@@ -60,18 +60,24 @@ class rnn_clf(object):
         with tf.name_scope('Softmax'):
             softmax_w = tf.get_variable('softmax_w', shape=[hidden_size, num_classes], dtype=tf.float32)
             softmax_b = tf.get_variable('softmax_b', shape=[num_classes], dtype=tf.float32)
-            # Add l2 regularization
-            l2_loss += tf.nn.l2_loss(softmax_w)
-            l2_loss += tf.nn.l2_loss(softmax_b)
+
+            # L2 regularization
+            self.l2_loss += tf.nn.l2_loss(softmax_w)
+            self.l2_loss += tf.nn.l2_loss(softmax_b)
+
             self.logits = tf.matmul(self.final_state[num_layers - 1].h, softmax_w) + softmax_b
             predictions = tf.nn.softmax(self.logits)
             self.predictions = tf.argmax(predictions, 1)
 
         # Loss
         with tf.name_scope('Loss'):
+            tvars = tf.trainable_variables()
+            for tv in tvars:
+                if 'kernel' in tv.name:
+                    self.l2_loss += tf.nn.l2_loss(tv)
             loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_y,
                                                                   logits=self.logits)
-            self.cost = tf.reduce_mean(loss) + l2_reg_lambda * l2_loss
+            self.cost = tf.reduce_mean(loss) + l2_reg_lambda * self.l2_loss
 
         # Accuracy
         with tf.name_scope('Accuracy'):
