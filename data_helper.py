@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
-import csv
-import collections
 import re
-import sys
-import time
 import os
+import sys
+import csv
+import time
 import json
+import collections
 
-import numpy as np
+import nltk
 import jieba
+import numpy as np
 
 # Please download langconv.py and zh_wiki.py first
 # langconv.py and zh_wiki.py are used for converting between languages
@@ -20,10 +21,20 @@ except ImportError as e:
     print(str(e) + ': ' + error)
     sys.exit()
 
-# Load data from csv file
-# file_path: csv file path
-# sw_path: stop word file path
-def load_data(file_path, sw_path, save_path=None, vocab_size=10000):
+def load_data(file_path, sw_path, language='ch', save_path=None, vocab_size=1000):
+    """
+    Build dataset for mini-batch iterator
+    :param file_path: Data file path
+    :param sw_path: Stop word file path
+    :param language: 'ch' for Chinese and 'en' for English
+    :param save_path: the path to save the mapping result
+    :param vocab_size: expected vocabulary size
+    :return data: a list of sentences. each sentence is a vector of integers
+    :return labels: a list of labels
+    :return idx_2_w: a vocabulary index
+    :return len(idx_2_w): true vocabulary size
+    :return max_length: the length of the longest sentence
+    """
     with open(file_path, 'r', encoding='utf-8') as f:
         incsv = csv.reader(f)
         header = next(incsv)  # Headers
@@ -37,20 +48,25 @@ def load_data(file_path, sw_path, save_path=None, vocab_size=10000):
         sw = _stop_words(sw_path)
 
         for line in incsv:
-            sent = _tradition_2_simple(line[content_idx].strip())
+            sent = line[content_idx].strip()
+            if language == 'ch':
+                sent = _tradition_2_simple(sent)
+            elif language == 'en':
+                sent = sent.lower()
+
             sent = _clean_data(sent, sw)
 
             if len(sent) < 1:
                 continue
 
-            word_list = _word_segmentation(sent)
+            word_list = _word_segmentation(sent, language)
             words.extend(word_list)
             text.append(word_list)
             labels.append(line[label_idx])
 
     start = time.time()
     print("Building dataset....")
-    count = [['UNK', -1]]
+    count = [['<PAD>', -1], ['<UNK>', 0]]
     count.extend(collections.Counter(words).most_common(vocab_size - 1))
     words, _ = zip(*count)
     words = list(words)
@@ -67,7 +83,7 @@ def load_data(file_path, sw_path, save_path=None, vocab_size=10000):
             if word in words:
                 temp.append(w_2_idx[word])
             else:
-                temp.append(w_2_idx['UNK'])
+                temp.append(w_2_idx['<UNK>'])
         data.append(temp)
     del text  # Release memory
 
@@ -95,10 +111,22 @@ def load_data(file_path, sw_path, save_path=None, vocab_size=10000):
                 outf.write(outstr)
                 outf.write('\n')
 
-    return data, labels, idx_2_w, len(idx_2_w)
+    max_length = max(map(len, data))
+
+    return data, labels, idx_2_w, len(idx_2_w), max_length
 
 
-def batch_iter(data, labels, batch_size, shuffle=True):
+def batch_iter(data, labels, batch_size, max_length=0, clf='rnn', shuffle=True):
+    """
+    A mini-batch iterator to generate mini-batches for training neural network
+    :param data: a list of sentences. each sentence is a vector of integers
+    :param labels: a list of labels
+    :param batch_size: the size of mini-batch
+    :param max_length: the length of the longest sentence in the dataset
+    :param clf: the type of neural network classifier
+    :param shuffle: whether to shuffle the data
+    :return: a mini-batch iterator
+    """
     data = np.array(data)
     labels = np.array(labels)
     data_size = len(data)
@@ -116,9 +144,11 @@ def batch_iter(data, labels, batch_size, shuffle=True):
         batch = data[start_index: end_index]
         label = labels[start_index: end_index]
         length = np.asarray(list(map(len, batch)))  # Convert list to numpy array
-        max_length = max(map(len, batch))  # Train data length
 
-        xdata = np.full((batch_size, max_length), 0, np.int32)
+        if clf == 'rnn':
+            max_length = max(map(len, batch))
+
+        xdata = np.full((batch_size, max_length), 0, np.int32)  # Zero padding
         ydata = np.full(batch_size, 0, np.int64)
         for row in range(batch_size):
             xdata[row, :len(batch[row])] = batch[row]
@@ -127,7 +157,11 @@ def batch_iter(data, labels, batch_size, shuffle=True):
             else:
                 ydata[row] = int(label[row])
 
-        yield (xdata, ydata, length)
+        if clf == 'rnn':
+            yield (xdata, ydata, length)
+        if clf == 'cnn':
+            yield (xdata, ydata)
+
 
 def restore_data(data_path):
     with open(data_path, 'r', encoding='utf-8') as mapf:
@@ -147,8 +181,11 @@ def _tradition_2_simple(sent):
     return langconv.Converter('zh-hans').convert(sent)
 
 
-def _word_segmentation(sent):
-    return list(jieba.cut(sent, cut_all=False, HMM=True))
+def _word_segmentation(sent, language):
+    if language == 'ch':
+        return list(jieba.cut(sent, cut_all=False, HMM=True))
+    elif language == 'en':
+        return nltk.word_tokenize(sent)
 
 
 def _stop_words(path):
@@ -162,7 +199,7 @@ def _stop_words(path):
 
 # Delete stop words using custom dictionary
 def _clean_data(sent, sw):
-    sent = re.sub('\s+', '', sent)
+    sent = re.sub('\s+', ' ', sent)
     sent = re.sub('！+', '！', sent)
     sent = re.sub('？+', '！', sent)
     sent = re.sub('。+', '。', sent)
@@ -173,12 +210,5 @@ def _clean_data(sent, sw):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, labels, idx_2_w_a, _ = load_data('test.csv', 'stop_words_ch.txt', save_path='data')
-    for data in batch_iter(data, labels, batch_size=1):
-        sentence, label, length = data
-        str = ''
-        for word in sentence[0]:
-            str += idx_2_w_a[word]
-        print(str, label, length)
-    w_2_idx, idx_2_w_b = restore_data('data/maps.txt')
-    assert idx_2_w_a == idx_2_w_b
+    data, labels, idx_2_w_a, _, _ = load_data('result.csv', 'stop_words_ch.txt', language='en', save_path='data')
+    print(data)
