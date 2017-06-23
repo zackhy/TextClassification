@@ -60,8 +60,10 @@ class cnn_clf(object):
         h_pool_flat = tf.reshape(h_pool, [-1, num_filters_total])
 
         # Add dropout
-        with tf.name_scope("dropout"):
-            h_drop = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
+        if is_training and self.keep_prob < 1.0:
+            with tf.name_scope("dropout"):
+                h_drop = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
+
 
         # Softmax
         with tf.name_scope('Softmax'):
