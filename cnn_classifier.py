@@ -62,7 +62,7 @@ class cnn_clf(object):
         # Add dropout
         if is_training and self.keep_prob < 1.0:
             with tf.name_scope("dropout"):
-                h_drop = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
+                h_pool_flat = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
 
 
         # Softmax
@@ -74,7 +74,7 @@ class cnn_clf(object):
             self.l2_loss += tf.nn.l2_loss(softmax_w)
             self.l2_loss += tf.nn.l2_loss(softmax_b)
 
-            self.logits = tf.matmul(h_drop, softmax_w) + softmax_b
+            self.logits = tf.matmul(h_pool_flat, softmax_w) + softmax_b
             predictions = tf.nn.softmax(self.logits)
             self.predictions = tf.argmax(predictions, 1)
 
