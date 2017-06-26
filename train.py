@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import time
+import json
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
@@ -15,11 +16,11 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # Hyperparameters of RNN classifier
 class rnn_config(object):
     num_classes = 3
-    batch_size = 1
+    batch_size = 30
     vocab_size = 20000
-    embedding_size = 10
-    hidden_size = 10
-    num_layers = 1
+    embedding_size = 128
+    hidden_size = 128
+    num_layers = 2
     keep_prob = 0.5
     learning_rate = 1e-3
     num_epochs = 5
@@ -30,55 +31,19 @@ class rnn_config(object):
 class cnn_config(object):
     sequence_length = 0
     num_classes = 3
-    batch_size = 1
+    batch_size = 20
     vocab_size = 20000
     embedding_size = 128
     filter_sizes = [3, 4, 5]
     num_filters = 128
     keep_prob = 0.5
     learning_rate = 1e-3
-    num_epochs = 50
-    l2_reg_lambda = 0.0
+    num_epochs = 51
+    l2_reg_lambda = 0.005
 
-
-def run_epoch(data, model, sess, clf='rnn', train_op=None):
+def train(clf='rnn', logdir='log'):
     """
-    Run one epoch
-    :param data: mini-batch data
-    :param model: the model for running
-    :param sess: the tensorflow session
-    :param clf: the type of neural network classifier
-    :param train_op: the optimizer for training.
-    :return: total loss, accuracy and L2 loss
-    """
-    if clf == 'rnn':
-        input_x, input_y, length = data
-    elif clf == 'cnn':
-        input_x, input_y = data
-
-    fetches = {'cost': model.cost,
-               'accuracy': model.accuracy,
-               'l2_loss': model.l2_loss}
-    feed_dict = {model.input_x: input_x,
-                 model.input_y: input_y}
-
-    if clf == 'rnn':
-        fetches['final_state'] = model.final_state
-        feed_dict[model.sequence_length] = length
-
-    if train_op is not None:
-        fetches['train_op'] = train_op
-
-    vars = sess.run(fetches, feed_dict)
-    cost = vars['cost']
-    accuracy = vars['accuracy']
-    l2_loss = vars['l2_loss']
-
-    return cost, accuracy, l2_loss
-
-def train(clf='rnn'):
-    """
-    Train and validate
+    Train the classifier and implement cross-validation
     :param clf: the type of neural network classifier
     :return: nothing
     """
@@ -89,8 +54,10 @@ def train(clf='rnn'):
     else:
         raise ValueError("clf should be either 'rnn' or 'cnn'")
 
-    data, labels, idx_2_w, vocab_size, max_length = data_helper.load_data(file_path='test.csv',
+    # ----------------------------------- Load data -----------------------------------
+    data, labels, idx_2_w, vocab_size, max_length = data_helper.load_data(file_path='data.csv',
                                                                           sw_path='stop_words_ch.txt',
+                                                                          language='en',
                                                                           save_path='data/',
                                                                           vocab_size=config.vocab_size)
 
@@ -98,85 +65,129 @@ def train(clf='rnn'):
     if clf == 'cnn':
         config.sequence_length = max_length
 
-
     # Cross validation
     x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, random_state=42)
 
+    # ----------------------------------- Training -----------------------------------
     with tf.Graph().as_default():
-        with tf.name_scope('Train'):
-            with tf.variable_scope('Model', reuse=None):
-                if clf == 'rnn':
-                    m = rnn_clf(config, is_training=True)
-                elif clf == 'cnn':
-                    m = cnn_clf(config, is_training=True)
-
-            tf.summary.scalar('Training loss', m.cost)
-            tf.summary.scalar('Training accuracy', m.accuracy)
-
-        with tf.name_scope('Valid'):
-            with tf.variable_scope('Model', reuse=True):
-                if clf == 'rnn':
-                    mvalid = rnn_clf(config, is_training=False)
-                elif clf == 'cnn':
-                    mvalid = cnn_clf(config, is_training=False)
-
-            tf.summary.scalar('Validation loss', mvalid.cost)
-            tf.summary.scalar('Validation accuracy', mvalid.accuracy)
-
         with tf.Session() as sess:
+            if clf == 'rnn':
+                classifier = rnn_clf(config)
+            else:
+                classifier = cnn_clf(config)
+
+            # Training procedure
+            global_step = tf.Variable(0, name='global_step', trainable=False)
+            train_op = tf.train.AdamOptimizer(config.learning_rate).minimize(classifier.cost, global_step)
+
+            # Summaries
+            loss_summary = tf.summary.scalar('Loss', classifier.cost)
+            accuracy_summary = tf.summary.scalar('Accuracy', classifier.accuracy)
+
+            # Train summary
+            train_summary_op = tf.summary.merge([loss_summary, accuracy_summary])
+            train_summary_dir = os.path.join(logdir, 'summaries', 'train')
+            train_summary_writer = tf.summary.FileWriter(train_summary_dir, sess.graph)
+
+            # Validation summary
+            valid_summary_op = tf.summary.merge([loss_summary, accuracy_summary])
+            valid_summary_dir = os.path.join(logdir, 'summaries', 'valid')
+            valid_summary_writer = tf.summary.FileWriter(valid_summary_dir, sess.graph)
+
+
+            saver = tf.train.Saver(max_to_keep=20)
+
             sess.run(tf.global_variables_initializer())
 
-            print('Start training....')
-            for i in range(rnn_config.num_epochs):
-                start = time.time()
-                train_step = 0
-                valid_step = 0
-                total_train_cost = 0
-                total_train_accuracy = 0
-                total_valid_cost = 0
-                total_valid_accuracy = 0
+            def run_step(input_data, is_training=True):
+                if clf == 'rnn':
+                    input_x, input_y, length = input_data
+                elif clf == 'cnn':
+                    input_x, input_y = input_data
 
+                fetches = {'step': global_step,
+                           'cost': classifier.cost,
+                           'accuracy': classifier.accuracy,
+                           'l2_loss': classifier.l2_loss}
+                feed_dict = {classifier.input_x: input_x,
+                             classifier.input_y: input_y}
+
+                if clf == 'rnn':
+                    fetches['final_state'] = classifier.final_state
+                    feed_dict[classifier.sequence_length] = length
+
+                if is_training:
+                    fetches['summaries'] = train_summary_op
+                    fetches['train_op'] = train_op
+                    feed_dict[classifier.keep_prob] = config.keep_prob
+                else:
+                    fetches['summaries'] = valid_summary_op
+                    feed_dict[classifier.keep_prob] = 1.0
+
+                vars = sess.run(fetches, feed_dict)
+                step = vars['step']
+                cost = vars['cost']
+                accuracy = vars['accuracy']
+                # step = vars['step']
+                summaries = vars['summaries']
+
+                if is_training:
+                    train_summary_writer.add_summary(summaries, step)
+                    # print('loss: {}, accuracy: {}, train step: {}'.format(cost, accuracy, step))
+                # else:
+                #     valid_summary_writer.add_summary(summaries, step)
+                #     print('loss: {}, accuracy: {}, valid step: {}'.format(cost, accuracy, step))
+
+                return cost, accuracy
+
+            step = 0
+            for i in range(config.num_epochs):
+                # Mini-batch iterator
                 train_data = data_helper.batch_iter(x_train, y_train, config.batch_size, max_length, clf=clf)
                 valid_data = data_helper.batch_iter(x_test, y_test, config.batch_size, max_length, clf=clf)
 
-                # Train
+                train_step = 0
+                valid_step = 0
+                tot_train_cost = 0
+                tot_valid_cost = 0
+                tot_train_accuracy = 0
+                tot_valid_accuracy = 0
+
                 for train_input in train_data:
-                    train_cost, train_accuracy, _ = run_epoch(train_input,
-                                                              model=m,
-                                                              sess=sess,
-                                                              train_op=m.train_op,
-                                                              clf=clf)
+                    train_cost, train_accuracy = run_step(train_input, is_training=True)
+
+                    tot_train_accuracy += train_accuracy
+                    tot_train_cost += train_cost
+
+                    step += 1
                     train_step += 1
-                    total_train_cost += train_cost
-                    total_train_accuracy += train_accuracy
 
-                    if train_step % 10 == 0:
-                        print('Epoch: {}, Step: {}, Loss: {}, Accuracy: {}'.format(i,
-                                                                                   train_step,
-                                                                                   train_cost,
-                                                                                   train_accuracy))
+                    if train_step % 100 == 0:
+                        print('Epoch: {}, Batch: {}, Loss: {}, Accuracy: {}'.format(i,
+                                                                                    train_step,
+                                                                                    train_cost,
+                                                                                    train_accuracy))
 
 
-                # Validation
                 for valid_input in valid_data:
-                    valid_cost, valid_accuracy, _ = run_epoch(valid_input,
-                                                              model=mvalid,
-                                                              sess=sess,
-                                                              clf=clf)
+                    valid_cost, valid_accuracy = run_step(valid_input, is_training=False)
+
+                    tot_valid_accuracy += valid_accuracy
+                    tot_valid_cost += valid_cost
+
                     valid_step += 1
-                    total_valid_cost += valid_cost
-                    total_valid_accuracy += valid_accuracy
 
-                end = time.time()
-                runtime = end - start
-
+                print('=============================================')
                 print('Epoch: {}, Train loss: {}, Train accuracy: {}'.format(i,
-                                                                             total_train_cost / train_step,
-                                                                             total_train_accuracy / train_step))
+                                                                             tot_train_cost / train_step,
+                                                                             tot_train_accuracy / train_step))
                 print('Epoch: {}, Valid loss: {}, Valid accuracy: {}'.format(i,
-                                                                             total_valid_cost / valid_step,
-                                                                             total_valid_accuracy / valid_step))
-                print('Run time: {}'.format(runtime))
+                                                                             tot_valid_cost / valid_step,
+                                                                             tot_valid_accuracy / valid_step))
+                print('=============================================')
+
+                if i % 5 == 0:
+                    saver.save(sess, 'model/clf', i)
 
 if __name__ == '__main__':
     train(clf='cnn')

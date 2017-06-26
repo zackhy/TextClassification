@@ -5,7 +5,7 @@ class cnn_clf(object):
     """
     A CNN classifier for text classification
     """
-    def __init__(self, config, is_training=True):
+    def __init__(self, config):
         self.sequence_length = config.sequence_length
         self.num_classes = config.num_classes
         self.batch_size = config.batch_size
@@ -13,13 +13,12 @@ class cnn_clf(object):
         self.embedding_size = config.embedding_size
         self.filter_sizes = config.filter_sizes
         self.num_filters = config.num_filters
-        self.keep_prob = config.keep_prob
-        self.learning_rate = config.learning_rate
         self.l2_reg_lambda = config.l2_reg_lambda
 
         # Placeholder for input data and labels
         self.input_x = tf.placeholder(dtype=tf.int32, shape=[self.batch_size, self.sequence_length])
         self.input_y = tf.placeholder(dtype=tf.int64, shape=[self.batch_size])
+        self.keep_prob = tf.placeholder(dtype=tf.float32)
 
         # L2 loss
         self.l2_loss = tf.constant(0.0)
@@ -34,11 +33,12 @@ class cnn_clf(object):
         # Convolution & Maxpool
         pooled_outputs = []
         for i, filter_size in enumerate(self.filter_sizes):
-            with tf.name_scope("conv-maxpool-%s" % filter_size):
+            with tf.variable_scope("conv-maxpool-%s" % filter_size):
                 # Convolution
                 filter_shape = [filter_size, self.embedding_size, 1, self.num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev=0.1, name='weights'))
-                b = tf.Variable(tf.constant(0.1, shape=[self.num_filters]), name='biases')
+                W = tf.get_variable("weights", filter_shape, initializer=tf.truncated_normal_initializer(stddev=0.1))
+                b = tf.get_variable("biases", [self.num_filters], initializer=tf.constant_initializer(0.0))
+
                 conv = tf.nn.conv2d(inputs,
                                     W,
                                     strides=[1, 1, 1, 1],
@@ -60,10 +60,7 @@ class cnn_clf(object):
         h_pool_flat = tf.reshape(h_pool, [-1, num_filters_total])
 
         # Add dropout
-        if is_training and self.keep_prob < 1.0:
-            with tf.name_scope("dropout"):
-                h_pool_flat = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
-
+        h_drop = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
 
         # Softmax
         with tf.name_scope('Softmax'):
@@ -74,7 +71,7 @@ class cnn_clf(object):
             self.l2_loss += tf.nn.l2_loss(softmax_w)
             self.l2_loss += tf.nn.l2_loss(softmax_b)
 
-            self.logits = tf.matmul(h_pool_flat, softmax_w) + softmax_b
+            self.logits = tf.matmul(h_drop, softmax_w) + softmax_b
             predictions = tf.nn.softmax(self.logits)
             self.predictions = tf.argmax(predictions, 1)
 
@@ -89,9 +86,3 @@ class cnn_clf(object):
             correct_predictions = tf.equal(self.predictions, self.input_y)
             self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')
-
-        if not is_training:
-            return
-
-        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.cost)
-

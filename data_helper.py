@@ -67,7 +67,7 @@ def load_data(file_path, sw_path, language='ch', save_path=None, vocab_size=1000
     start = time.time()
     print("Building dataset....")
     count = [['<PAD>', -1], ['<UNK>', 0]]
-    count.extend(collections.Counter(words).most_common(vocab_size - 1))
+    count.extend(collections.Counter(words).most_common(vocab_size - 2))
     words, _ = zip(*count)
     words = list(words)
     del count  # Release memory
@@ -210,5 +210,5 @@ def _clean_data(sent, sw):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, labels, idx_2_w_a, _, _ = load_data('result.csv', 'stop_words_ch.txt', language='en', save_path='data')
-    print(data)
+    data, labels, idx_2_w_a, _, max_length = load_data('data.csv', 'stop_words_ch.txt', language='ch', save_path='data')
+    print(max_length)
