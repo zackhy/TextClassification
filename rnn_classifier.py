@@ -5,20 +5,19 @@ class rnn_clf(object):
     """"
     A RNN classifier for text classification
     """
-    def __init__(self, config, is_training=True):
+    def __init__(self, config):
         self.num_classes = config.num_classes
         self.batch_size = config.batch_size
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
         self.hidden_size = config.hidden_size
         self.num_layers = config.num_layers
-        self.learning_rate = config.learning_rate
-        self.keep_prob = config.keep_prob
         self.l2_reg_lambda = config.l2_reg_lambda
 
         self.input_x = tf.placeholder(dtype=tf.int32, shape=[self.batch_size, None])
         self.input_y = tf.placeholder(dtype=tf.int64, shape=[self.batch_size])
         self.sequence_length = tf.placeholder(dtype=tf.int32, shape=[self.batch_size])
+        self.keep_prob = tf.placeholder(dtype=tf.float32, shape=[])
 
         # L2 loss
         self.l2_loss = tf.constant(0.0)
@@ -29,8 +28,7 @@ class rnn_clf(object):
                                        state_is_tuple=True,
                                        reuse=tf.get_variable_scope().reuse)
         # Add dropout to cell output
-        if is_training and self.keep_prob < 1:
-            cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
+        cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
 
         # Stacked LSTMs
         cell = tf.contrib.rnn.MultiRNNCell([cell]*self.num_layers, state_is_tuple=True)
@@ -48,8 +46,7 @@ class rnn_clf(object):
             inputs = tf.nn.embedding_lookup(embedding, self.input_x)
 
         # Input dropout
-        if is_training and self.keep_prob < 1:
-            inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
+        inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
 
         # Dynamic LSTM
         with tf.variable_scope('LSTM'):
@@ -92,9 +89,3 @@ class rnn_clf(object):
             correct_predictions = tf.equal(self.predictions, self.input_y)
             self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')
-
-        if not is_training:
-            return
-
-        # Optimizer
-        self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.cost)

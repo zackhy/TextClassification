@@ -54,7 +54,7 @@ def load_data(file_path, sw_path, language='ch', save_path=None, vocab_size=1000
             elif language == 'en':
                 sent = sent.lower()
 
-            sent = _clean_data(sent, sw)
+            sent = _clean_data(sent, sw, language=language)
 
             if len(sent) < 1:
                 continue
@@ -198,12 +198,27 @@ def _stop_words(path):
 
 
 # Delete stop words using custom dictionary
-def _clean_data(sent, sw):
-    sent = re.sub('\s+', ' ', sent)
-    sent = re.sub('！+', '！', sent)
-    sent = re.sub('？+', '！', sent)
-    sent = re.sub('。+', '。', sent)
-    sent = re.sub('，+', '，', sent)
+def _clean_data(sent, sw, language='ch'):
+    if language == 'ch':
+        sent = re.sub('\s+', ' ', sent)
+        sent = re.sub('！+', '！', sent)
+        sent = re.sub('？+', '！', sent)
+        sent = re.sub('。+', '。', sent)
+        sent = re.sub('，+', '，', sent)
+    if language == 'en':
+        sent = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", sent)
+        sent = re.sub(r"\'s", " \'s", sent)
+        sent = re.sub(r"\'ve", " \'ve", sent)
+        sent = re.sub(r"n\'t", " n\'t", sent)
+        sent = re.sub(r"\'re", " \'re", sent)
+        sent = re.sub(r"\'d", " \'d", sent)
+        sent = re.sub(r"\'ll", " \'ll", sent)
+        sent = re.sub(r",", " , ", sent)
+        sent = re.sub(r"!", " ! ", sent)
+        sent = re.sub(r"\(", " \( ", sent)
+        sent = re.sub(r"\)", " \) ", sent)
+        sent = re.sub(r"\?", " \? ", sent)
+        sent = re.sub(r"\s{2,}", " ", sent)
     sent = "".join([word for word in sent if word not in sw])
 
     return sent

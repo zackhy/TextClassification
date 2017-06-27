@@ -2,6 +2,7 @@
 import os
 import time
 import json
+import pickle as pkl
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
@@ -35,11 +36,11 @@ class cnn_config(object):
     vocab_size = 20000
     embedding_size = 128
     filter_sizes = [3, 4, 5]
-    num_filters = 128
+    num_filters = 256
     keep_prob = 0.5
     learning_rate = 1e-3
     num_epochs = 51
-    l2_reg_lambda = 0.005
+    l2_reg_lambda = 0.01
 
 def train(clf='rnn', logdir='log'):
     """
@@ -57,11 +58,12 @@ def train(clf='rnn', logdir='log'):
     # ----------------------------------- Load data -----------------------------------
     data, labels, idx_2_w, vocab_size, max_length = data_helper.load_data(file_path='data.csv',
                                                                           sw_path='stop_words_ch.txt',
-                                                                          language='en',
+                                                                          language='ch',
                                                                           save_path='data/',
                                                                           vocab_size=config.vocab_size)
 
     config.vocab_size = min(vocab_size, config.vocab_size)
+
     if clf == 'cnn':
         config.sequence_length = max_length
 
@@ -133,10 +135,6 @@ def train(clf='rnn', logdir='log'):
 
                 if is_training:
                     train_summary_writer.add_summary(summaries, step)
-                    # print('loss: {}, accuracy: {}, train step: {}'.format(cost, accuracy, step))
-                # else:
-                #     valid_summary_writer.add_summary(summaries, step)
-                #     print('loss: {}, accuracy: {}, valid step: {}'.format(cost, accuracy, step))
 
                 return cost, accuracy
 
@@ -186,8 +184,9 @@ def train(clf='rnn', logdir='log'):
                                                                              tot_valid_accuracy / valid_step))
                 print('=============================================')
 
+                # Save the model every 5 epochs
                 if i % 5 == 0:
                     saver.save(sess, 'model/clf', i)
 
 if __name__ == '__main__':
-    train(clf='cnn')
+    train(clf='rnn')
