@@ -1,7 +1,8 @@
 # Multi-class Text Classification
 Implement two neural networks for multi-class text classification problem.
 ## Models
-* A LSTM classifier with dropout and L2 regularization.
-* A CNN classifier with dropout and L2 regularization. The model was built from [this tutorial](http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/).
+* A basic LSTM classifier.
+* A basic CNN classifier. The model was built from [this tutorial](http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/).
+* A C-LSTM classifier. The model was based on [this paper](https://arxiv.org/abs/1511.08630).
 ## Train
-train.py supports the training of both cnn and rnn. Cross-validation was implemented to measure the goodness of a model.
+Run train.py to train the models. Cross validation was implemented to test the goodness of a model.
