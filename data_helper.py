@@ -21,11 +21,12 @@ except ImportError as e:
     print(str(e) + ': ' + error)
     sys.exit()
 
-def load_data(file_path, sw_path, language='ch', save_path=None, vocab_size=1000):
+def load_data(file_path, sw_path, test_file_path=None, language='ch', save_path=None, vocab_size=1000):
     """
     Build dataset for mini-batch iterator
     :param file_path: Data file path
     :param sw_path: Stop word file path
+    :param test_file_path: Test data file path
     :param language: 'ch' for Chinese and 'en' for English
     :param save_path: the path to save the mapping result
     :param vocab_size: expected vocabulary size
@@ -87,6 +88,9 @@ def load_data(file_path, sw_path, language='ch', save_path=None, vocab_size=1000
         data.append(temp)
     del text  # Release memory
 
+    if test_file_path is not None:
+        test_data, test_labels = load_test_data(test_file_path, sw, w_2_idx, language)
+
     end = time.time()
     runtime = end - start
 
@@ -113,7 +117,44 @@ def load_data(file_path, sw_path, language='ch', save_path=None, vocab_size=1000
 
     max_length = max(map(len, data))
 
-    return data, labels, idx_2_w, len(idx_2_w), max_length
+    if test_file_path is not None:
+        return data, labels, idx_2_w, len(idx_2_w), max_length, test_data, test_labels
+    else:
+        return data, labels, idx_2_w, len(idx_2_w), max_length
+
+def load_test_data(file_path, sw, w_2_idx, language='ch'):
+    data = []
+    labels = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        incsv = csv.reader(f)
+        header = next(incsv)
+        label_idx = header.index('label')
+        content_idx = header.index('content')
+
+        for line in incsv:
+            sent_2_indices = []
+            sent = line[content_idx].strip()
+            if language == 'ch':
+                sent = _tradition_2_simple(sent)
+            elif language == 'en':
+                sent = sent.lower()
+
+            sent = _clean_data(sent, sw, language=language)
+
+            if len(sent) < 1:
+                continue
+
+            word_list = _word_segmentation(sent, language)
+            for word in word_list:
+                if word in w_2_idx:
+                    sent_2_indices.append(w_2_idx[word])
+                else:
+                    sent_2_indices.append(w_2_idx['<UNK>'])
+            data.append(sent_indices)
+            labels.append(line[label_idx])
+
+    return data, labels
+
 
 
 def batch_iter(data, labels, batch_size, max_length=0, clf='rnn', shuffle=True):
@@ -225,5 +266,5 @@ def _clean_data(sent, sw, language='ch'):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, labels, idx_2_w_a, _, max_length = load_data('data.csv', 'stop_words_ch.txt', language='ch', save_path='data')
+    data, labels, idx_2_w_a, _, max_length = load_data('data.csv', 'stop_words_ch.txt', test_file_path='test.csv' language='ch', save_path='data')
     print(max_length)

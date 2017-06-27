@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import csv
 import time
 import json
 import pickle as pkl
@@ -18,7 +19,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 class rnn_config(object):
     num_classes = 3
     batch_size = 30
-    vocab_size = 20000
+    vocab_size = 10000
     embedding_size = 128
     hidden_size = 128
     num_layers = 2
@@ -33,11 +34,11 @@ class cnn_config(object):
     sequence_length = 0
     num_classes = 3
     batch_size = 20
-    vocab_size = 20000
+    vocab_size = 10000
     embedding_size = 128
     filter_sizes = [3, 4, 5]
     num_filters = 256
-    keep_prob = 0.5
+    keep_prob = 0.4
     learning_rate = 1e-3
     num_epochs = 51
     l2_reg_lambda = 0.01
@@ -56,11 +57,12 @@ def train(clf='rnn', logdir='log'):
         raise ValueError("clf should be either 'rnn' or 'cnn'")
 
     # ----------------------------------- Load data -----------------------------------
-    data, labels, idx_2_w, vocab_size, max_length = data_helper.load_data(file_path='data.csv',
-                                                                          sw_path='stop_words_ch.txt',
-                                                                          language='ch',
-                                                                          save_path='data/',
-                                                                          vocab_size=config.vocab_size)
+    data, labels, idx_2_w, vocab_size, max_length, x_test, y_test = data_helper.load_data(file_path='data.csv',
+                                                                                          sw_path='stop_words_ch.txt',
+                                                                                          test_file_path='test.csv',
+                                                                                          language='ch',
+                                                                                          save_path='data/',
+                                                                                          vocab_size=config.vocab_size)
 
     config.vocab_size = min(vocab_size, config.vocab_size)
 
@@ -68,7 +70,7 @@ def train(clf='rnn', logdir='log'):
         config.sequence_length = max_length
 
     # Cross validation
-    x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, random_state=42)
+    x_train, x_valid, y_train, y_valid = train_test_split(data, labels, test_size=0.1, random_state=42)
 
     # ----------------------------------- Training -----------------------------------
     with tf.Graph().as_default():
@@ -102,6 +104,7 @@ def train(clf='rnn', logdir='log'):
             sess.run(tf.global_variables_initializer())
 
             def run_step(input_data, is_training=True):
+                """Run one step of the training process."""
                 if clf == 'rnn':
                     input_x, input_y, length = input_data
                 elif clf == 'cnn':
@@ -123,7 +126,7 @@ def train(clf='rnn', logdir='log'):
                     fetches['train_op'] = train_op
                     feed_dict[classifier.keep_prob] = config.keep_prob
                 else:
-                    fetches['summaries'] = valid_summary_op
+                    # fetches['summaries'] = valid_summary_op
                     feed_dict[classifier.keep_prob] = 1.0
 
                 vars = sess.run(fetches, feed_dict)
@@ -131,9 +134,8 @@ def train(clf='rnn', logdir='log'):
                 cost = vars['cost']
                 accuracy = vars['accuracy']
                 # step = vars['step']
-                summaries = vars['summaries']
-
                 if is_training:
+                    summaries = vars['summaries']
                     train_summary_writer.add_summary(summaries, step)
 
                 return cost, accuracy
@@ -142,14 +144,18 @@ def train(clf='rnn', logdir='log'):
             for i in range(config.num_epochs):
                 # Mini-batch iterator
                 train_data = data_helper.batch_iter(x_train, y_train, config.batch_size, max_length, clf=clf)
-                valid_data = data_helper.batch_iter(x_test, y_test, config.batch_size, max_length, clf=clf)
+                valid_data = data_helper.batch_iter(x_valid, y_valid, 1, max_length, clf=clf)
+                test_data = data_helper.batch_iter(x_test, y_test, 1, max_length, clf=clf)
 
                 train_step = 0
                 valid_step = 0
+                test_step = 0
                 tot_train_cost = 0
                 tot_valid_cost = 0
+                tot_test_cost = 0
                 tot_train_accuracy = 0
                 tot_valid_accuracy = 0
+                tot_test_accuracy = 0
 
                 for train_input in train_data:
                     train_cost, train_accuracy = run_step(train_input, is_training=True)
@@ -175,6 +181,14 @@ def train(clf='rnn', logdir='log'):
 
                     valid_step += 1
 
+                for test_input in test_data:
+                    test_cost, test_accuracy = run_step(test_input, is_training=False)
+
+                    tot_test_accuracy += test_accuracy
+                    tot_test_cost += test_cost
+
+                    test_step += 1
+
                 print('=============================================')
                 print('Epoch: {}, Train loss: {}, Train accuracy: {}'.format(i,
                                                                              tot_train_cost / train_step,
@@ -182,6 +196,9 @@ def train(clf='rnn', logdir='log'):
                 print('Epoch: {}, Valid loss: {}, Valid accuracy: {}'.format(i,
                                                                              tot_valid_cost / valid_step,
                                                                              tot_valid_accuracy / valid_step))
+                print('Epoch: {}, Test loss: {}, Test accuracy: {}'.format(i,
+                                                                           tot_test_cost / test_step,
+                                                                           tot_test_accuracy / test_step))
                 print('=============================================')
 
                 # Save the model every 5 epochs
@@ -189,4 +206,4 @@ def train(clf='rnn', logdir='log'):
                     saver.save(sess, 'model/clf', i)
 
 if __name__ == '__main__':
-    train(clf='rnn')
+    train(clf='cnn')
