@@ -150,7 +150,7 @@ def load_test_data(file_path, sw, w_2_idx, language='ch'):
                     sent_2_indices.append(w_2_idx[word])
                 else:
                     sent_2_indices.append(w_2_idx['<UNK>'])
-            data.append(sent_indices)
+            data.append(sent_2_indices)
             labels.append(line[label_idx])
 
     return data, labels
@@ -266,5 +266,5 @@ def _clean_data(sent, sw, language='ch'):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, labels, idx_2_w_a, _, max_length = load_data('data.csv', 'stop_words_ch.txt', test_file_path='test.csv' language='ch', save_path='data')
+    data, labels, idx_2_w_a, _, max_length, test_data, test_labels = load_data('data.csv', 'stop_words_ch.txt', test_file_path='test.csv', language='ch', save_path='data')
     print(max_length)

@@ -8,7 +8,6 @@ class cnn_clf(object):
     def __init__(self, config):
         self.sequence_length = config.sequence_length
         self.num_classes = config.num_classes
-        self.batch_size = config.batch_size
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
         self.filter_sizes = config.filter_sizes
@@ -16,8 +15,8 @@ class cnn_clf(object):
         self.l2_reg_lambda = config.l2_reg_lambda
 
         # Placeholder for input data and labels
-        self.input_x = tf.placeholder(dtype=tf.int32, shape=[self.batch_size, self.sequence_length])
-        self.input_y = tf.placeholder(dtype=tf.int64, shape=[self.batch_size])
+        self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, self.sequence_length])
+        self.input_y = tf.placeholder(dtype=tf.int64, shape=[None])
         self.keep_prob = tf.placeholder(dtype=tf.float32)
 
         # L2 loss
