@@ -6,7 +6,7 @@ class cnn_clf(object):
     A CNN classifier for text classification
     """
     def __init__(self, config):
-        self.sequence_length = config.sequence_length
+        self.sequence_length = config.max_length
         self.num_classes = config.num_classes
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
