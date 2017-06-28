@@ -10,6 +10,7 @@ import collections
 import nltk
 import jieba
 import numpy as np
+from tensorflow.contrib import learn
 
 # Please download langconv.py and zh_wiki.py first
 # langconv.py and zh_wiki.py are used for converting between languages
@@ -21,140 +22,127 @@ except ImportError as e:
     print(str(e) + ': ' + error)
     sys.exit()
 
-def load_data(file_path, sw_path, test_file_path=None, language='ch', save_path=None, vocab_size=1000):
+
+def load_data(file_path, sw_path, min_frequency=0, language='ch'):
     """
     Build dataset for mini-batch iterator
     :param file_path: Data file path
     :param sw_path: Stop word file path
-    :param test_file_path: Test data file path
     :param language: 'ch' for Chinese and 'en' for English
-    :param save_path: the path to save the mapping result
-    :param vocab_size: expected vocabulary size
+    :param min_frequency: the minimal frequency of words to keep
     :return data: a list of sentences. each sentence is a vector of integers
     :return labels: a list of labels
-    :return idx_2_w: a vocabulary index
-    :return len(idx_2_w): true vocabulary size
-    :return max_length: the length of the longest sentence
+    :return vocab_processor: Tensorflow VocabularyProcessor object
     """
     with open(file_path, 'r', encoding='utf-8') as f:
+        print('Building dataset ...')
+        start = time.time()
         incsv = csv.reader(f)
-        header = next(incsv)  # Headers
+        header = next(incsv)  # Header
         label_idx = header.index('label')
         content_idx = header.index('content')
 
-        text = []
         labels = []
-        words = []
+        sentences = []
 
         sw = _stop_words(sw_path)
 
         for line in incsv:
             sent = line[content_idx].strip()
+
             if language == 'ch':
-                sent = _tradition_2_simple(sent)
+                sent = _tradition_2_simple(sent)  # Convert traditional Chinese to simplified Chinese
             elif language == 'en':
                 sent = sent.lower()
 
-            sent = _clean_data(sent, sw, language=language)
+            sent = _clean_data(sent, sw, language=language)  # Remove stop words and special characters
 
             if len(sent) < 1:
                 continue
 
-            word_list = _word_segmentation(sent, language)
-            words.extend(word_list)
-            text.append(word_list)
+            sent = _word_segmentation(sent, language)
+            sentences.append(sent)
             labels.append(line[label_idx])
 
-    start = time.time()
-    print("Building dataset....")
-    count = [['<PAD>', -1], ['<UNK>', 0]]
-    count.extend(collections.Counter(words).most_common(vocab_size - 2))
-    words, _ = zip(*count)
-    words = list(words)
-    del count  # Release memory
+    max_length = max(map(len, [sent.strip().split(' ') for sent in sentences]))
 
-    # Map words to indices
-    w_2_idx = dict(zip(words, range(len(words))))
-    idx_2_w = dict(zip(w_2_idx.values(), w_2_idx.keys()))
-
-    data = []
-    for sentence in text:
-        temp = []
-        for word in sentence:
-            if word in words:
-                temp.append(w_2_idx[word])
-            else:
-                temp.append(w_2_idx['<UNK>'])
-        data.append(temp)
-    del text  # Release memory
-
-    if test_file_path is not None:
-        test_data, test_labels = load_test_data(test_file_path, sw, w_2_idx, language)
-
+    # Extract vocabulary from sentences and map words to indices
+    vocab_processor = learn.preprocessing.VocabularyProcessor(max_length, min_frequency=min_frequency)
+    # Sentence vector
+    data = np.array(list(vocab_processor.fit_transform(sentences)))
     end = time.time()
-    runtime = end - start
 
     print('Dataset has been built successfully.')
-    print('Run time: ', runtime)
-    print('--------- Summary of the Dataset ---------')
-    print('Vocabulary size: ', len(w_2_idx))
-    print('Number of sentences: ', len(data))
-    print('Words to indices: ', sorted(w_2_idx.items(), key=lambda x: x[1])[:5])
-    print('-------------------------------------------')
+    print('Run time: {}'.format(end - start))
+    print('Number of sentences: {}'.format(len(data)))
+    print('Vocabulary size: {}'.format(len(vocab_processor.vocabulary_._mapping)))
 
-    if save_path is not None:
-        if os.path.isfile(save_path):
-            raise RuntimeError('the save path should be a dir')
-        if not os.path.exists(save_path):
-            os.mkdir(save_path)
+    return data, labels, vocab_processor
 
-        map_path = os.path.join(save_path, 'maps.txt')
-        with open(map_path, 'w', encoding='utf-8') as outf:
-            for idx in sorted(idx_2_w.items(), key=lambda x: x[0]):
-                outstr = '{}\t{}'.format(idx[0], idx_2_w[idx[0]])
-                outf.write(outstr)
-                outf.write('\n')
+def save_data(vocab_processor, save_path):
+    """ Save vocabulary """
+    vocab_dict = vocab_processor.vocabulary_._mapping
 
-    max_length = max(map(len, data))
+    sorted_vocab = sorted(vocab_dict.items(), key=lambda x: x[1])
 
-    if test_file_path is not None:
-        return data, labels, idx_2_w, len(idx_2_w), max_length, test_data, test_labels
-    else:
-        return data, labels, idx_2_w, len(idx_2_w), max_length
+    if os.path.isfile(save_path):
+        raise RuntimeError('the save path should be a dir')
+    if not os.path.exists(save_path):
+        os.mkdir(save_path)
 
-def load_test_data(file_path, sw, w_2_idx, language='ch'):
-    data = []
-    labels = []
+    save_path = os.path.join(save_path, 'maps.txt')
+
+    with open(save_path, 'w', encoding='utf-8') as f:
+        for word, id in sorted_vocab:
+            f.write('{}\t{}'.format(id, word))
+            f.write('\n')
+    print('Vocabulary has been saved to', save_path)
+
+
+def load_test_data(file_path, sw_path, vocab_processor, language='ch'):
+    """ Load test data """
     with open(file_path, 'r', encoding='utf-8') as f:
         incsv = csv.reader(f)
-        header = next(incsv)
+        header = next(incsv)  # Header
         label_idx = header.index('label')
         content_idx = header.index('content')
 
+        labels = []
+        sentences = []
+
+        sw = _stop_words(sw_path)
+
         for line in incsv:
-            sent_2_indices = []
             sent = line[content_idx].strip()
+
             if language == 'ch':
-                sent = _tradition_2_simple(sent)
+                sent = _tradition_2_simple(sent)  # Convert traditional Chinese to simplified Chinese
             elif language == 'en':
                 sent = sent.lower()
 
-            sent = _clean_data(sent, sw, language=language)
+            sent = _clean_data(sent, sw, language=language)  # Remove stop words and special characters
 
             if len(sent) < 1:
                 continue
 
-            word_list = _word_segmentation(sent, language)
-            for word in word_list:
-                if word in w_2_idx:
-                    sent_2_indices.append(w_2_idx[word])
-                else:
-                    sent_2_indices.append(w_2_idx['<UNK>'])
-            data.append(sent_2_indices)
+            sent = _word_segmentation(sent, language)
+            sentences.append(sent)
             labels.append(line[label_idx])
+
+    data = np.array(list(vocab_processor.transform(sentences)))
 
     return data, labels
 
+
+def restore_data(data_path):
+    with open(data_path, 'r', encoding='utf-8') as mapf:
+        w_2_idx = {}
+        idx_2_w = {}
+        for line in mapf:
+            idx, word = line.strip().split('\t')
+            w_2_idx[word] = int(idx)
+            idx_2_w[int(idx)] = word
+    return w_2_idx, idx_2_w
 
 
 def batch_iter(data, labels, batch_size, max_length=0, clf='rnn', shuffle=True):
@@ -203,30 +191,21 @@ def batch_iter(data, labels, batch_size, max_length=0, clf='rnn', shuffle=True):
         if clf == 'cnn':
             yield (xdata, ydata)
 
-
-def restore_data(data_path):
-    with open(data_path, 'r', encoding='utf-8') as mapf:
-        w_2_idx = {}
-        idx_2_w = {}
-        for line in mapf:
-            idx, word = line.strip().split('\t')
-            w_2_idx[word] = int(idx)
-            idx_2_w[int(idx)] = word
-    return w_2_idx, idx_2_w
-
-
 # --------------- Private Methods ---------------
 
-# Convert Traditional Chinese to Simplified Chinese
 def _tradition_2_simple(sent):
+    """ Convert Traditional Chinese to Simplified Chinese """
     return langconv.Converter('zh-hans').convert(sent)
 
 
 def _word_segmentation(sent, language):
+    """ Tokenizer """
     if language == 'ch':
-        return list(jieba.cut(sent, cut_all=False, HMM=True))
+        sent = ' '.join(list(jieba.cut(sent, cut_all=False, HMM=True)))
     elif language == 'en':
-        return nltk.word_tokenize(sent)
+        sent = ' '.join(nltk.word_tokenize(sent))
+
+    return re.sub(r'\s+', ' ', sent)
 
 
 def _stop_words(path):
@@ -238,9 +217,10 @@ def _stop_words(path):
     return set(sw)
 
 
-# Delete stop words using custom dictionary
 def _clean_data(sent, sw, language='ch'):
+    """ Remove special characters and stop words """
     if language == 'ch':
+        sent = re.sub(r"[^\u4e00-\u9fa5A-z0-9]", " ", sent)
         sent = re.sub('\s+', ' ', sent)
         sent = re.sub('！+', '！', sent)
         sent = re.sub('？+', '！', sent)
@@ -266,5 +246,7 @@ def _clean_data(sent, sw, language='ch'):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, labels, idx_2_w_a, _, max_length, test_data, test_labels = load_data('data.csv', 'stop_words_ch.txt', test_file_path='test.csv', language='ch', save_path='data')
-    print(max_length)
+    data, sorted_vocab, vocab_processor = load_data(file_path='test.csv', sw_path='stop_words_ch.txt')
+    save_data(vocab_processor, save_path='data')
+    test_data, test_labels = load_test_data(file_path='test.csv', sw_path='stop_words_ch.txt',
+                                            vocab_processor=vocab_processor)

@@ -5,11 +5,17 @@ import time
 import json
 import pickle as pkl
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
 
 import data_helper
 from rnn_classifier import rnn_clf
 from cnn_classifier import cnn_clf
+
+try:
+    from sklearn.model_selection import train_test_split
+except ImportError as e:
+    error = "Please install scikit-learn."
+    print(str(e) + ': ' + error)
+    sys.exit()
 
 # Show warnings and errors only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
