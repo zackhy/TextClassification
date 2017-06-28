@@ -59,7 +59,7 @@ class rnn_clf(object):
         self.final_state = state
 
         # Softmax output layer
-        with tf.name_scope('Softmax'):
+        with tf.name_scope('softmax'):
             softmax_w = tf.get_variable('softmax_w', shape=[self.hidden_size, self.num_classes], dtype=tf.float32)
             softmax_b = tf.get_variable('softmax_b', shape=[self.num_classes], dtype=tf.float32)
 
@@ -72,7 +72,7 @@ class rnn_clf(object):
             self.predictions = tf.argmax(predictions, 1)
 
         # Loss
-        with tf.name_scope('Loss'):
+        with tf.name_scope('loss'):
             tvars = tf.trainable_variables()
 
             # L2 regularization for LSTM weights
@@ -80,12 +80,12 @@ class rnn_clf(object):
                 if 'kernel' in tv.name:
                     self.l2_loss += tf.nn.l2_loss(tv)
 
-            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_y,
+            losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_y,
                                                                   logits=self.logits)
-            self.cost = tf.reduce_mean(loss) + self.l2_reg_lambda * self.l2_loss
+            self.cost = tf.reduce_mean(losses) + self.l2_reg_lambda * self.l2_loss
 
         # Accuracy
-        with tf.name_scope('Accuracy'):
+        with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, self.input_y)
             self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')

@@ -62,7 +62,7 @@ class cnn_clf(object):
         h_drop = tf.nn.dropout(h_pool_flat, keep_prob=self.keep_prob)
 
         # Softmax
-        with tf.name_scope('Softmax'):
+        with tf.name_scope('softmax'):
             softmax_w = tf.Variable(tf.truncated_normal([num_filters_total, self.num_classes], stddev=0.1), name='softmax_w')
             softmax_b = tf.Variable(tf.constant(0.1, shape=[self.num_classes]), name='softmax_b')
 
@@ -75,13 +75,13 @@ class cnn_clf(object):
             self.predictions = tf.argmax(predictions, 1)
 
         # Loss
-        with tf.name_scope('Loss'):
+        with tf.name_scope('loss'):
             losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_y, logits=self.logits)
             # Add L2 losses
             self.cost = tf.reduce_mean(losses) + self.l2_reg_lambda * self.l2_loss
 
         # Accuracy
-        with tf.name_scope('Accuracy'):
+        with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, self.input_y)
             self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')
