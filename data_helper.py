@@ -23,7 +23,7 @@ except ImportError as e:
     sys.exit()
 
 
-def load_data(file_path, sw_path, min_frequency=0, language='ch'):
+def load_data(file_path, sw_path, min_frequency=0, language='ch', vocab_processor=None):
     """
     Build dataset for mini-batch iterator
     :param file_path: Data file path
@@ -67,82 +67,22 @@ def load_data(file_path, sw_path, min_frequency=0, language='ch'):
     max_length = max(map(len, [sent.strip().split(' ') for sent in sentences]))
 
     # Extract vocabulary from sentences and map words to indices
-    vocab_processor = learn.preprocessing.VocabularyProcessor(max_length, min_frequency=min_frequency)
+    if vocab_processor is None:
+        vocab_processor = learn.preprocessing.VocabularyProcessor(max_length, min_frequency=min_frequency)
+        data = np.array(list(vocab_processor.fit_transform(sentences)))
+    else:
+        data = np.array(list(vocab_processor.transform(sentences)))
+
     # Sentence vector
-    data = np.array(list(vocab_processor.fit_transform(sentences)))
     end = time.time()
 
     print('Dataset has been built successfully.')
     print('Run time: {}'.format(end - start))
     print('Number of sentences: {}'.format(len(data)))
     print('Vocabulary size: {}'.format(len(vocab_processor.vocabulary_._mapping)))
+    print('Max document length: {}'.format(vocab_processor.max_document_length))
 
     return data, labels, vocab_processor
-
-def save_data(vocab_processor, save_path):
-    """ Save vocabulary """
-    vocab_dict = vocab_processor.vocabulary_._mapping
-
-    sorted_vocab = sorted(vocab_dict.items(), key=lambda x: x[1])
-
-    if os.path.isfile(save_path):
-        raise RuntimeError('the save path should be a dir')
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
-
-    save_path = os.path.join(save_path, 'maps.txt')
-
-    with open(save_path, 'w', encoding='utf-8') as f:
-        for word, id in sorted_vocab:
-            f.write('{}\t{}'.format(id, word))
-            f.write('\n')
-    print('Vocabulary has been saved to', save_path)
-
-
-def load_test_data(file_path, sw_path, vocab_processor, language='ch'):
-    """ Load test data """
-    with open(file_path, 'r', encoding='utf-8') as f:
-        incsv = csv.reader(f)
-        header = next(incsv)  # Header
-        label_idx = header.index('label')
-        content_idx = header.index('content')
-
-        labels = []
-        sentences = []
-
-        sw = _stop_words(sw_path)
-
-        for line in incsv:
-            sent = line[content_idx].strip()
-
-            if language == 'ch':
-                sent = _tradition_2_simple(sent)  # Convert traditional Chinese to simplified Chinese
-            elif language == 'en':
-                sent = sent.lower()
-
-            sent = _clean_data(sent, sw, language=language)  # Remove stop words and special characters
-
-            if len(sent) < 1:
-                continue
-
-            sent = _word_segmentation(sent, language)
-            sentences.append(sent)
-            labels.append(line[label_idx])
-
-    data = np.array(list(vocab_processor.transform(sentences)))
-
-    return data, labels
-
-
-def restore_data(data_path):
-    with open(data_path, 'r', encoding='utf-8') as mapf:
-        w_2_idx = {}
-        idx_2_w = {}
-        for line in mapf:
-            idx, word = line.strip().split('\t')
-            w_2_idx[word] = int(idx)
-            idx_2_w[int(idx)] = word
-    return w_2_idx, idx_2_w
 
 
 def batch_iter(data, labels, batch_size, max_length=0, clf='rnn', shuffle=True):
@@ -246,7 +186,9 @@ def _clean_data(sent, sw, language='ch'):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, sorted_vocab, vocab_processor = load_data(file_path='test.csv', sw_path='stop_words_ch.txt')
-    save_data(vocab_processor, save_path='data')
-    test_data, test_labels = load_test_data(file_path='test.csv', sw_path='stop_words_ch.txt',
-                                            vocab_processor=vocab_processor)
+    data, labels, vocab_processor = load_data(file_path='test.csv', sw_path='stop_words_ch.txt')
+    print(data)
+    vocab_processor.save('vocab')
+    vocab_pro = learn.preprocessing.VocabularyProcessor.restore('vocab')
+    data, labels, _ = load_data(file_path='test1.csv', sw_path='stop_words_ch.txt', vocab_processor=vocab_pro)
+    print(data)
