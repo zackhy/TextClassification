@@ -24,7 +24,7 @@ python train.py --help
   --num_classes NUM_CLASSES
                         Number of classes
   --max_length MAX_LENGTH
-                        Length the longest sentence in the document
+                        Length of the longest sentence in the document
   --vocab_size VOCAB_SIZE
                         Vocabulary size
   --test_size TEST_SIZE
@@ -57,4 +57,11 @@ python train.py --help
   --num_checkpoint NUM_CHECKPOINT
                         Number of models to store
 ```
-
+You could run a .bat file to search for hyperparameters. For example:
+```
+python train.py
+python train.py --min_frequency=0
+python train.py --min_frequency=5
+python train.py --learning_rate=0.01
+python train.py --learning_rate=0.1
+```
