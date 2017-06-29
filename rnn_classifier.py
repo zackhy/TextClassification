@@ -16,7 +16,6 @@ class rnn_clf(object):
 
         self.input_x = tf.placeholder(dtype=tf.int32, shape=[self.batch_size, None])
         self.input_y = tf.placeholder(dtype=tf.int64, shape=[self.batch_size])
-        self.sequence_length = tf.placeholder(dtype=tf.int32, shape=[self.batch_size])
         self.keep_prob = tf.placeholder(dtype=tf.float32, shape=[])
 
         # L2 loss
@@ -52,8 +51,7 @@ class rnn_clf(object):
         with tf.variable_scope('LSTM'):
             outputs, state = tf.nn.dynamic_rnn(cell,
                                                inputs=inputs,
-                                               initial_state=self._initial_state,
-                                               sequence_length=self.sequence_length)
+                                               initial_state=self._initial_state)
 
         # self.output = state[num_layers - 1].h
         self.final_state = state

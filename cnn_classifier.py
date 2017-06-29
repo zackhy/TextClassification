@@ -10,7 +10,7 @@ class cnn_clf(object):
         self.num_classes = config.num_classes
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
-        self.filter_sizes = config.filter_sizes
+        self.filter_sizes = list(map(int, config.filter_sizes.split(",")))
         self.num_filters = config.num_filters
         self.l2_reg_lambda = config.l2_reg_lambda
 

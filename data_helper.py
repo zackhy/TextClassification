@@ -7,7 +7,6 @@ import time
 import json
 import collections
 
-import nltk
 import jieba
 import numpy as np
 from tensorflow.contrib import learn
@@ -23,7 +22,7 @@ except ImportError as e:
     sys.exit()
 
 
-def load_data(file_path, sw_path, min_frequency=0, language='ch', vocab_processor=None):
+def load_data(file_path, sw_path, min_frequency=0, language='ch', vocab_processor=None, shuffle=True):
     """
     Build dataset for mini-batch iterator
     :param file_path: Data file path
@@ -60,9 +59,16 @@ def load_data(file_path, sw_path, min_frequency=0, language='ch', vocab_processo
             if len(sent) < 1:
                 continue
 
-            sent = _word_segmentation(sent, language)
+            if language == 'ch':
+                sent = _word_segmentation(sent)
             sentences.append(sent)
-            labels.append(line[label_idx])
+
+            if int(line[label_idx]) < 0:
+                labels.append(2)
+            else:
+                labels.append(int(line[label_idx]))
+
+    labels = np.array(labels)
 
     max_length = max(map(len, [sent.strip().split(' ') for sent in sentences]))
 
@@ -73,62 +79,43 @@ def load_data(file_path, sw_path, min_frequency=0, language='ch', vocab_processo
     else:
         data = np.array(list(vocab_processor.transform(sentences)))
 
-    # Sentence vector
+    data_size = len(data)
+    if shuffle:
+        shuffle_indices = np.random.permutation(np.arange(data_size))
+        data = data[shuffle_indices]
+        labels = labels[shuffle_indices]
+
     end = time.time()
 
     print('Dataset has been built successfully.')
     print('Run time: {}'.format(end - start))
     print('Number of sentences: {}'.format(len(data)))
     print('Vocabulary size: {}'.format(len(vocab_processor.vocabulary_._mapping)))
-    print('Max document length: {}'.format(vocab_processor.max_document_length))
+    print('Max document length: {}\n'.format(vocab_processor.max_document_length))
 
     return data, labels, vocab_processor
 
 
-def batch_iter(data, labels, batch_size, max_length=0, clf='rnn', shuffle=True):
+def batch_iter(data, labels, batch_size, num_epochs):
     """
     A mini-batch iterator to generate mini-batches for training neural network
     :param data: a list of sentences. each sentence is a vector of integers
     :param labels: a list of labels
     :param batch_size: the size of mini-batch
-    :param max_length: the length of the longest sentence in the dataset
-    :param clf: the type of neural network classifier
     :param shuffle: whether to shuffle the data
     :return: a mini-batch iterator
     """
-    data = np.array(data)
-    labels = np.array(labels)
     data_size = len(data)
     epoch_length = data_size // batch_size
 
-    if shuffle:
-        shuffle_indices = np.random.permutation(np.arange(data_size))
-        data = data[shuffle_indices]
-        labels = labels[shuffle_indices]
+    for _ in range(num_epochs):
+        for i in range(epoch_length):
+            start_index = i * batch_size
+            end_index = start_index + batch_size
 
-    for i in range(epoch_length):
-        start_index = i * batch_size
-        end_index = start_index + batch_size
+            xdata = data[start_index: end_index]
+            ydata = labels[start_index: end_index]
 
-        batch = data[start_index: end_index]
-        label = labels[start_index: end_index]
-        length = np.asarray(list(map(len, batch)))  # Convert list to numpy array
-
-        if clf == 'rnn':
-            max_length = max(map(len, batch))
-
-        xdata = np.full((batch_size, max_length), 0, np.int32)  # Zero padding
-        ydata = np.full(batch_size, 0, np.int64)
-        for row in range(batch_size):
-            xdata[row, :len(batch[row])] = batch[row]
-            if int(label[row]) < 0:
-                ydata[row] = 2
-            else:
-                ydata[row] = int(label[row])
-
-        if clf == 'rnn':
-            yield (xdata, ydata, length)
-        if clf == 'cnn':
             yield (xdata, ydata)
 
 # --------------- Private Methods ---------------
@@ -138,13 +125,9 @@ def _tradition_2_simple(sent):
     return langconv.Converter('zh-hans').convert(sent)
 
 
-def _word_segmentation(sent, language):
+def _word_segmentation(sent):
     """ Tokenizer """
-    if language == 'ch':
-        sent = ' '.join(list(jieba.cut(sent, cut_all=False, HMM=True)))
-    elif language == 'en':
-        sent = ' '.join(nltk.word_tokenize(sent))
-
+    sent = ' '.join(list(jieba.cut(sent, cut_all=False, HMM=True)))
     return re.sub(r'\s+', ' ', sent)
 
 
@@ -186,9 +169,9 @@ def _clean_data(sent, sw, language='ch'):
 
 if __name__ == '__main__':
     # Tiny example for test
-    data, labels, vocab_processor = load_data(file_path='test.csv', sw_path='stop_words_ch.txt')
-    print(data)
-    vocab_processor.save('vocab')
-    vocab_pro = learn.preprocessing.VocabularyProcessor.restore('vocab')
-    data, labels, _ = load_data(file_path='test1.csv', sw_path='stop_words_ch.txt', vocab_processor=vocab_pro)
-    print(data)
+    data, labels, vocab_processor = load_data(file_path='benchmark.csv', sw_path='stop_words_ch.txt', language='en')
+    print(data[:5])
+    print(labels[:5])
+    input = batch_iter(data, labels, 2, 1)
+    for item in input:
+        print(item)
