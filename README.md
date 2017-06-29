@@ -7,7 +7,10 @@ Implement three neural networks in Tensorflow for multi-class text classificatio
 ## Train
 Run train.py to train the models.
 Parameters:
-'''
+```
+python train.py --help
+```
+```
   --clf CLF             Type of classifiers to use. You have three choices:
                         ['cnn', 'rnn', 'clstm]
   --data_file DATA_FILE
@@ -53,5 +56,5 @@ Parameters:
                         Save the model after this many steps
   --num_checkpoint NUM_CHECKPOINT
                         Number of models to store
-'''
+```
 
