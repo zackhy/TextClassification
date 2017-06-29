@@ -29,14 +29,14 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 tf.flags.DEFINE_string('clf', 'cnn', "Type of classifiers to use. You have three choices: ['cnn', 'rnn', 'clstm]")
 
 # Data parameters
-tf.flags.DEFINE_string('data_file', 'benchmark.csv', 'Data')
-tf.flags.DEFINE_string('stop_word_file', 'stop_words_ch.txt', 'Stop word file')
-tf.flags.DEFINE_string('language', 'en', "The language of the data file. You have two choices: ['ch', 'en']")
-tf.flags.DEFINE_integer('min_frequency', 1, 'The minimal word frequency')
-tf.flags.DEFINE_integer('num_classes', 2, 'Number of classes')
-tf.flags.DEFINE_integer('max_length', 0, 'The length the longest sentence in the document')
-tf.flags.DEFINE_integer('vocab_size', 0, 'The vocabulary size')
-tf.flags.DEFINE_float('test_size', 0.1, 'The test size')
+tf.flags.DEFINE_string('data_file', 'data.csv', 'Data file path')
+tf.flags.DEFINE_string('stop_word_file', 'stop_words_ch.txt', 'Stop word file path')
+tf.flags.DEFINE_string('language', 'ch', "Language of the data file. You have two choices: ['ch', 'en']")
+tf.flags.DEFINE_integer('min_frequency', 1, 'Minimal word frequency')
+tf.flags.DEFINE_integer('num_classes', 3, 'Number of classes')
+tf.flags.DEFINE_integer('max_length', 0, 'Length of the longest sentence in the document')
+tf.flags.DEFINE_integer('vocab_size', 0, 'Vocabulary size')
+tf.flags.DEFINE_float('test_size', 0.1, 'Test size')
 
 # Hyperparameters
 tf.flags.DEFINE_integer('embedding_size', 128, 'Word embedding size')
@@ -183,4 +183,4 @@ with tf.Graph().as_default():
             if current_step % FLAGS.save_every_steps == 0:
                 save_path = saver.save(sess, os.path.join(outdir, 'model/clf'), current_step)
 
-        print('\nAll files have been saved to {}\n'.format(outdir))
+        print('\nAll the files have been saved to {}\n'.format(outdir))
