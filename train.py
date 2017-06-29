@@ -46,7 +46,7 @@ tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM 
 tf.flags.DEFINE_integer('num_layers', 3, 'Number of the LSTM cells')  # RNN
 tf.flags.DEFINE_integer('keep_prob', 0.4, 'Dropout keep probability')
 tf.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate')
-tf.flags.DEFINE_float('l2_reg_lambda', 0.01, 'L2 regularization lambda')
+tf.flags.DEFINE_float('l2_reg_lambda', 0.05, 'L2 regularization lambda')
 
 # Training parameters
 tf.flags.DEFINE_integer('batch_size', 64, 'Batch size')
@@ -58,6 +58,19 @@ tf.flags.DEFINE_integer('num_checkpoint', 20, 'Number of models to store')
 FLAGS = tf.flags.FLAGS
 FLAGS._parse_flags()
 
+# Output files directory
+timestamp = str(int(time.time()))
+outdir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
+if not os.path.exists(outdir):
+    os.makedirs(outdir)
+
+# Save flags to file
+params = FLAGS.__flags
+params_file = open(os.path.join(outdir, 'params.pkl'), 'wb')
+pkl.dump(params, params_file, True)
+params_file.close()
+
+
 # Load data
 # =============================================================================
 
@@ -66,12 +79,6 @@ data, labels, vocab_processor = data_helper.load_data(file_path=FLAGS.data_file,
                                                       min_frequency=FLAGS.min_frequency,
                                                       language=FLAGS.language,
                                                       shuffle=True)
-
-# Output files directory
-timestamp = str(int(time.time()))
-outdir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
-if not os.path.exists(outdir):
-    os.makedirs(outdir)
 
 # Save vocabulary processor
 vocab_processor.save(os.path.join(outdir, 'vocab'))
