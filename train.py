@@ -11,6 +11,7 @@ from tensorflow.contrib import learn
 import data_helper
 from rnn_classifier import rnn_clf
 from cnn_classifier import cnn_clf
+from clstm_classifier import clstm_clf
 
 try:
     from sklearn.model_selection import train_test_split
@@ -26,27 +27,27 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # =============================================================================
 
 # Model choices
-tf.flags.DEFINE_string('clf', 'cnn', "Type of classifiers to use. You have three choices: ['cnn', 'rnn', 'clstm]")
+tf.flags.DEFINE_string('clf', 'cnn', "Type of classifiers. Default: cnn. You have three choices: [cnn, rnn, clstm]")
 
 # Data parameters
 tf.flags.DEFINE_string('data_file', 'data.csv', 'Data file path')
 tf.flags.DEFINE_string('stop_word_file', 'stop_words_ch.txt', 'Stop word file path')
-tf.flags.DEFINE_string('language', 'ch', "Language of the data file. You have two choices: ['ch', 'en']")
+tf.flags.DEFINE_string('language', 'ch', "Language of the data file. You have two choices: [ch, en]")
 tf.flags.DEFINE_integer('min_frequency', 1, 'Minimal word frequency')
 tf.flags.DEFINE_integer('num_classes', 3, 'Number of classes')
-tf.flags.DEFINE_integer('max_length', 0, 'Length of the longest sentence in the document')
+tf.flags.DEFINE_integer('max_length', 0, 'Max document length')
 tf.flags.DEFINE_integer('vocab_size', 0, 'Vocabulary size')
-tf.flags.DEFINE_float('test_size', 0.1, 'Test size')
+tf.flags.DEFINE_float('test_size', 0.1, 'Cross validation test size')
 
 # Hyperparameters
 tf.flags.DEFINE_integer('embedding_size', 128, 'Word embedding size')
-tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter size')  # CNN
+tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes')  # CNN
 tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size')  # CNN
 tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell')  # RNN
 tf.flags.DEFINE_integer('num_layers', 3, 'Number of the LSTM cells')  # RNN
-tf.flags.DEFINE_integer('keep_prob', 0.4, 'Dropout keep probability')
+tf.flags.DEFINE_float('keep_prob', 0.4, 'Dropout keep probability')
 tf.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate')
-tf.flags.DEFINE_float('l2_reg_lambda', 0.05, 'L2 regularization lambda')
+tf.flags.DEFINE_float('l2_reg_lambda', 0.0, 'L2 regularization lambda')
 
 # Training parameters
 tf.flags.DEFINE_integer('batch_size', 64, 'Batch size')
@@ -56,7 +57,6 @@ tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this man
 tf.flags.DEFINE_integer('num_checkpoint', 20, 'Number of models to store')
 
 FLAGS = tf.flags.FLAGS
-FLAGS._parse_flags()
 
 # Output files directory
 timestamp = str(int(time.time()))
@@ -64,7 +64,7 @@ outdir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 
-# Save flags to file
+# Save parameters to file
 params = FLAGS.__flags
 params_file = open(os.path.join(outdir, 'params.pkl'), 'wb')
 pkl.dump(params, params_file, True)
@@ -74,23 +74,36 @@ params_file.close()
 # Load data
 # =============================================================================
 
-data, labels, vocab_processor = data_helper.load_data(file_path=FLAGS.data_file,
-                                                      sw_path=FLAGS.stop_word_file,
-                                                      min_frequency=FLAGS.min_frequency,
-                                                      language=FLAGS.language,
-                                                      shuffle=True)
+data, labels, lengths, vocab_processor = data_helper.load_data(file_path=FLAGS.data_file,
+                                                               sw_path=FLAGS.stop_word_file,
+                                                               min_frequency=FLAGS.min_frequency,
+                                                               max_length=FLAGS.max_length,
+                                                               language=FLAGS.language,
+                                                               shuffle=True)
 
 # Save vocabulary processor
 vocab_processor.save(os.path.join(outdir, 'vocab'))
 
 FLAGS.vocab_size = len(vocab_processor.vocabulary_._mapping)
 
-if FLAGS.clf == 'cnn':
-    FLAGS.max_length = vocab_processor.max_document_length
+FLAGS.max_length = vocab_processor.max_document_length
 
-# Cross validation
-x_train, x_valid, y_train, y_valid = train_test_split(data, labels, test_size=FLAGS.test_size, random_state=42)
-train_data = data_helper.batch_iter(x_train, y_train, FLAGS.batch_size, FLAGS.num_epochs)
+
+# Simple Cross validation
+# TODO use k-fold cross validation
+x_train, x_valid, y_train, y_valid, train_lengths, valid_lengths = train_test_split(data,
+                                                                                    labels,
+                                                                                    lengths,
+                                                                                    test_size=FLAGS.test_size,
+                                                                                    random_state=22)
+# Batch iterator
+train_data = data_helper.batch_iter(x_train, y_train, train_lengths, FLAGS.batch_size, FLAGS.num_epochs)
+flags_dict = sorted(tf.flags.FLAGS.__flags.items(), key=lambda x: x[0])
+# Print parameters
+print('Parameters:')
+for item in flags_dict:
+    print('{}: {}'.format(item[0], item[1]))
+print('')
 
 # Train
 # =============================================================================
@@ -99,8 +112,12 @@ with tf.Graph().as_default():
     with tf.Session() as sess:
         if FLAGS.clf == 'cnn':
             classifier = cnn_clf(FLAGS)
-        else:
+        elif FLAGS.clf == 'rnn':
             classifier = rnn_clf(FLAGS)
+        elif FLAGS.clf == 'clstm':
+            classifier = clstm_clf(FLAGS)
+        else:
+            raise ValueError('clf should be one of [cnn, rnn, clstm]')
 
         # Train procedure
         global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -129,7 +146,7 @@ with tf.Graph().as_default():
 
         def run_step(input_data, is_training=True):
             """Run one step of the training process."""
-            input_x, input_y = input_data
+            input_x, input_y, sequence_length = input_data
 
             fetches = {'step': global_step,
                        'cost': classifier.cost,
@@ -137,8 +154,10 @@ with tf.Graph().as_default():
             feed_dict = {classifier.input_x: input_x,
                          classifier.input_y: input_y}
 
-            if FLAGS.clf == 'rnn':
+            if FLAGS.clf != 'cnn':
                 fetches['final_state'] = classifier.final_state
+                feed_dict[classifier.batch_size] = len(input_x)
+                feed_dict[classifier.sequence_length] = sequence_length
 
             if is_training:
                 fetches['train_op'] = train_op
@@ -153,6 +172,8 @@ with tf.Graph().as_default():
             cost = vars['cost']
             accuracy = vars['accuracy']
             summaries = vars['summaries']
+
+            # Write summaries to file
             if is_training:
                 train_summary_writer.add_summary(summaries, step)
             else:
@@ -172,12 +193,7 @@ with tf.Graph().as_default():
 
             if current_step % FLAGS.evaluate_every_steps == 0:
                 print('\nValidation')
-                if FLAGS.clf == 'cnn':
-                    run_step((x_valid, y_valid), is_training=False)
-                else:
-                    valid_data = data_helper.batch_iter(x_valid, y_valid, batch_size=FLAGS.batch_size, num_epochs=1)
-                    for valid_input in valid_data:
-                        run_step(valid_input, is_training=False)
+                run_step((x_valid, y_valid, valid_lengths), is_training=False)
                 print('')
 
             if current_step % FLAGS.save_every_steps == 0:
