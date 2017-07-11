@@ -6,7 +6,7 @@ class cnn_clf(object):
     A CNN classifier for text classification
     """
     def __init__(self, config):
-        self.sequence_length = config.max_length
+        self.max_length = config.max_length
         self.num_classes = config.num_classes
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
@@ -14,8 +14,8 @@ class cnn_clf(object):
         self.num_filters = config.num_filters
         self.l2_reg_lambda = config.l2_reg_lambda
 
-        # Placeholder for input data and labels
-        self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, self.sequence_length])
+        # Placeholders
+        self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, self.max_length])
         self.input_y = tf.placeholder(dtype=tf.int64, shape=[None])
         self.keep_prob = tf.placeholder(dtype=tf.float32)
 
@@ -48,7 +48,7 @@ class cnn_clf(object):
 
                 # Maxpool
                 pooled = tf.nn.max_pool(h,
-                                        ksize=[1, self.sequence_length - filter_size + 1, 1, 1],
+                                        ksize=[1, self.max_length - filter_size + 1, 1, 1],
                                         strides=[1, 1, 1, 1],
                                         padding='VALID',
                                         name='pool')
