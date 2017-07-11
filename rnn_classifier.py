@@ -22,43 +22,18 @@ class rnn_clf(object):
         # L2 loss
         self.l2_loss = tf.constant(0.0)
 
-        # LSTM Cell
-        cell = tf.contrib.rnn.LSTMCell(self.hidden_size,
-                                       forget_bias=1.0,
-                                       state_is_tuple=True,
-                                       reuse=tf.get_variable_scope().reuse)
-        # Add dropout to cell output
-        cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
-
-        # Stacked LSTMs
-        cell = tf.contrib.rnn.MultiRNNCell([cell]*self.num_layers, state_is_tuple=True)
-
-        self._initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
-
         # Word embedding
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            # embedding = tf.Variable(tf.random_uniform([self.vocab_size, self.hidden_size], -1.0, 1.0),
-            #                         name='embedding')
-            # better performance
             embedding = tf.get_variable('embedding',
                                         shape=[self.vocab_size, self.hidden_size],
                                         dtype=tf.float32)
-            print(embedding.shape)
             inputs = tf.nn.embedding_lookup(embedding, self.input_x)
 
-        print(inputs.shape)
-
         # Input dropout
-        inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
+        self.inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
 
-        # Dynamic LSTM
-        with tf.variable_scope('LSTM'):
-            outputs, state = tf.nn.dynamic_rnn(cell,
-                                               inputs=inputs,
-                                               initial_state=self._initial_state,
-                                               sequence_length=self.sequence_length)
-
-        self.final_state = state
+        # LSTM
+        self.final_state = self.normal_lstm()
 
         # Softmax output layer
         with tf.name_scope('softmax'):
@@ -91,3 +66,63 @@ class rnn_clf(object):
             correct_predictions = tf.equal(self.predictions, self.input_y)
             self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')
+
+    def normal_lstm(self):
+        # LSTM Cell
+        cell = tf.contrib.rnn.LSTMCell(self.hidden_size,
+                                       forget_bias=1.0,
+                                       state_is_tuple=True,
+                                       reuse=tf.get_variable_scope().reuse)
+        # Add dropout to cell output
+        cell = tf.contrib.rnn.DropoutWrapper(cell, output_keep_prob=self.keep_prob)
+
+        # Stacked LSTMs
+        cell = tf.contrib.rnn.MultiRNNCell([cell] * self.num_layers, state_is_tuple=True)
+
+        self._initial_state = cell.zero_state(self.batch_size, dtype=tf.float32)
+
+        # Dynamic LSTM
+        with tf.variable_scope('LSTM'):
+            outputs, state = tf.nn.dynamic_rnn(cell,
+                                               inputs=self.inputs,
+                                               initial_state=self._initial_state,
+                                               sequence_length=self.sequence_length)
+
+        final_state = state
+
+        return final_state
+
+
+    def bi_lstm(self):
+        cell_fw = tf.contrib.rnn.LSTMCell(self.hidden_size,
+                                          forget_bias=1.0,
+                                          state_is_tuple=True,
+                                          reuse=tf.get_variable_scope().reuse)
+        cell_bw = tf.contrib.rnn.LSTMCell(self.hidden_size,
+                                          forget_bias=1.0,
+                                          state_is_tuple=True,
+                                          reuse=tf.get_variable_scope().reuse)
+
+        # Add dropout to cell output
+        cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, output_keep_prob=self.keep_prob)
+        cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, output_keep_prob=self.keep_prob)
+
+        # Stacked LSTMs
+        cell_fw = tf.contrib.rnn.MultiRNNCell([cell_fw] * self.num_layers, state_is_tuple=True)
+        cell_bw = tf.contrib.rnn.MultiRNNCell([cell_bw] * self.num_layers, state_is_tuple=True)
+
+        self._initial_state_fw = cell.zero_state(self.batch_size, dtype=tf.float32)
+        self._initial_state_bw = cell.zero_state(self.batch_size, dtype=tf.float32)
+
+        # Dynamic Bi-LSTM
+        with tf.variable_scope('Bi-LSTM'):
+            outputs, state = tf.nn.bidirectional_dynamic_rnn(cell_fw,
+                                                             cell_bw,
+                                                             inputs=self.inputs,
+                                                             initial_state_fw=self._initial_state_fw,
+                                                             initial_state_bw=self._initial_state_bw,
+                                                             sequence_length=self.sequence_length)
+
+        final_state = state
+
+        return final_state
