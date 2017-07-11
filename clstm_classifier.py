@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import tensorflow as tf
 import data_helper
+import numpy as np
 
 
 class clstm_clf(object):
@@ -11,12 +12,11 @@ class clstm_clf(object):
     def __init__(self, config):
         self.max_length = config.max_length
         self.num_classes = config.num_classes
-        # self.batch_size = config.batch_size
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
         self.filter_sizes = list(map(int, config.filter_sizes.split(",")))
         self.num_filters = config.num_filters
-        self.hidden_size = config.hidden_size
+        self.hidden_size = len(self.filter_sizes) * self.num_filters
         self.num_layers = config.num_layers
         self.l2_reg_lambda = config.l2_reg_lambda
 
@@ -40,6 +40,9 @@ class clstm_clf(object):
         # Input dropout
         inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
 
+        conv_outputs = []
+        max_feature_length = self.max_length - max(self.filter_sizes) + 1
+        total_filters = len(self.filter_sizes) * self.num_filters
         # Convolutional layer with different lengths of filters in parallel
         # No max-pooling
         for i, filter_size in enumerate(self.filter_sizes):
@@ -56,11 +59,20 @@ class clstm_clf(object):
                                     padding='VALID',
                                     name='conv')
                 # Activation function
-                self.h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
+                h = tf.nn.relu(tf.nn.bias_add(conv, b), name='relu')
 
-                # Reshape the CNN output tensors to proper shape.
-                self.h_reshape = tf.squeeze(self.h, [2])
+                # Remove channel dimension
+                h_reshape = tf.squeeze(h, [2])
+                # Cut the feature sequence at the end based on the maximum filter length
+                h_reshape = h_reshape[:, :max_feature_length, :]
 
+                conv_outputs.append(h_reshape)
+
+        # Concatenate the outputs from different filters
+        if len(self.filter_sizes) > 1:
+            rnn_inputs = tf.concat(conv_outputs, -1)
+        else:
+            rnn_inputs = h_reshape
 
         # LSTM cell
         cell = tf.contrib.rnn.LSTMCell(self.hidden_size,
@@ -78,7 +90,7 @@ class clstm_clf(object):
         # Feed the CNN outputs to LSTM network
         with tf.variable_scope('LSTM'):
             outputs, state = tf.nn.dynamic_rnn(cell,
-                                               self.h_reshape,
+                                               rnn_inputs,
                                                initial_state=self._initial_state,
                                                sequence_length=self.sequence_length)
             self.final_state = state
