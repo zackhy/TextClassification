@@ -8,7 +8,6 @@ class rnn_clf(object):
     def __init__(self, config):
         self.num_classes = config.num_classes
         self.vocab_size = config.vocab_size
-        self.embedding_size = config.embedding_size
         self.hidden_size = config.hidden_size
         self.num_layers = config.num_layers
         self.l2_reg_lambda = config.l2_reg_lambda
@@ -38,13 +37,16 @@ class rnn_clf(object):
 
         # Word embedding
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            # embedding = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0),
+            # embedding = tf.Variable(tf.random_uniform([self.vocab_size, self.hidden_size], -1.0, 1.0),
             #                         name='embedding')
             # better performance
             embedding = tf.get_variable('embedding',
-                                        shape=[self.vocab_size, self.embedding_size],
+                                        shape=[self.vocab_size, self.hidden_size],
                                         dtype=tf.float32)
+            print(embedding.shape)
             inputs = tf.nn.embedding_lookup(embedding, self.input_x)
+
+        print(inputs.shape)
 
         # Input dropout
         inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)

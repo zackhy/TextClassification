@@ -27,36 +27,45 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # =============================================================================
 
 # Model choices
-tf.flags.DEFINE_string('clf', 'cnn', "Type of classifiers. Default: cnn. You have three choices: [cnn, rnn, clstm]")
+tf.flags.DEFINE_string('clf', 'clstm', "Type of classifiers. Default: cnn. You have three choices: [cnn, rnn, clstm]")
 
 # Data parameters
-tf.flags.DEFINE_string('data_file', 'data.csv', 'Data file path')
-tf.flags.DEFINE_string('stop_word_file', 'stop_words_ch.txt', 'Stop word file path')
-tf.flags.DEFINE_string('language', 'ch', "Language of the data file. You have two choices: [ch, en]")
-tf.flags.DEFINE_integer('min_frequency', 1, 'Minimal word frequency')
-tf.flags.DEFINE_integer('num_classes', 3, 'Number of classes')
+tf.flags.DEFINE_string('data_file', 'benchmark.csv', 'Data file path')
+tf.flags.DEFINE_string('stop_word_file', 'stop_words_en.txt', 'Stop word file path')
+tf.flags.DEFINE_string('language', 'en', "Language of the data file. You have two choices: [ch, en]")
+tf.flags.DEFINE_integer('min_frequency', 0, 'Minimal word frequency')
+tf.flags.DEFINE_integer('num_classes', 2, 'Number of classes')
 tf.flags.DEFINE_integer('max_length', 0, 'Max document length')
 tf.flags.DEFINE_integer('vocab_size', 0, 'Vocabulary size')
 tf.flags.DEFINE_float('test_size', 0.1, 'Cross validation test size')
 
-# Hyperparameters
-tf.flags.DEFINE_integer('embedding_size', 128, 'Word embedding size')
-tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes')  # CNN
-tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size')  # CNN
+"""
+CNN hyperparameters: embedding_size, filter_sizes, num_filters.
+RNN hyperparameters: hidden_size, num_layers. embedding_size = hidden_size.
+C-LSTM hyperparameters: embedding_size, filter_sizes, num_filters, num_layers. hidden_size = len(filter_sizes) * num_filters.
+"""
+tf.flags.DEFINE_integer('embedding_size', 256, 'Word embedding size')  # CNN, C-LSTM
+tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes')  # CNN, C-LSTM
+tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size')  # CNN, C-LSTM
 tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell')  # RNN
-tf.flags.DEFINE_integer('num_layers', 3, 'Number of the LSTM cells')  # RNN
-tf.flags.DEFINE_float('keep_prob', 0.4, 'Dropout keep probability')
-tf.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate')
-tf.flags.DEFINE_float('l2_reg_lambda', 0.0, 'L2 regularization lambda')
+tf.flags.DEFINE_integer('num_layers', 2, 'Number of the LSTM cells')  # RNN, C-LSTM
+tf.flags.DEFINE_float('keep_prob', 0.5, 'Dropout keep probability')  # All
+tf.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate')  # All
+tf.flags.DEFINE_float('l2_reg_lambda', 0.001, 'L2 regularization lambda')  # All
 
 # Training parameters
-tf.flags.DEFINE_integer('batch_size', 64, 'Batch size')
+tf.flags.DEFINE_integer('batch_size', 32, 'Batch size')
 tf.flags.DEFINE_integer('num_epochs', 50, 'Number of epochs')
 tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on validation set after this many steps')
 tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
 tf.flags.DEFINE_integer('num_checkpoint', 20, 'Number of models to store')
 
 FLAGS = tf.flags.FLAGS
+
+if FLAGS.clf == 'rnn':
+    FLAGS.embedding_size = FLAGS.hidden_size
+elif FLAGS.clf == 'clstm':
+    FLAGS.hidden_size = len(FLAGS.filter_sizes.split(",")) * FLAGS.num_filters
 
 # Output files directory
 timestamp = str(int(time.time()))
