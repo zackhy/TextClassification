@@ -7,16 +7,18 @@ class rnn_clf(object):
     """
     def __init__(self, config):
         self.num_classes = config.num_classes
-        self.batch_size = config.batch_size
         self.vocab_size = config.vocab_size
         self.embedding_size = config.embedding_size
         self.hidden_size = config.hidden_size
         self.num_layers = config.num_layers
         self.l2_reg_lambda = config.l2_reg_lambda
 
-        self.input_x = tf.placeholder(dtype=tf.int32, shape=[self.batch_size, None])
-        self.input_y = tf.placeholder(dtype=tf.int64, shape=[self.batch_size])
+        # Placeholders
+        self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
+        self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, None])
+        self.input_y = tf.placeholder(dtype=tf.int64, shape=[None])
         self.keep_prob = tf.placeholder(dtype=tf.float32, shape=[])
+        self.sequence_length = tf.placeholder(dtype=tf.int32, shape=[None])
 
         # L2 loss
         self.l2_loss = tf.constant(0.0)
@@ -51,9 +53,9 @@ class rnn_clf(object):
         with tf.variable_scope('LSTM'):
             outputs, state = tf.nn.dynamic_rnn(cell,
                                                inputs=inputs,
-                                               initial_state=self._initial_state)
+                                               initial_state=self._initial_state,
+                                               sequence_length=self.sequence_length)
 
-        # self.output = state[num_layers - 1].h
         self.final_state = state
 
         # Softmax output layer
