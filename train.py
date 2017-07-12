@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import sys
 import csv
 import time
 import json
@@ -27,7 +28,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # =============================================================================
 
 # Model choices
-tf.flags.DEFINE_string('clf', 'clstm', "Type of classifiers. Default: cnn. You have three choices: [cnn, rnn, clstm]")
+tf.flags.DEFINE_string('clf', 'clstm', "Type of classifiers. Default: cnn. You have three choices: [cnn, rnn, blstm, clstm]")
 
 # Data parameters
 tf.flags.DEFINE_string('data_file', 'benchmark.csv', 'Data file path')
@@ -47,8 +48,8 @@ C-LSTM hyperparameters: embedding_size, filter_sizes, num_filters, num_layers. h
 tf.flags.DEFINE_integer('embedding_size', 256, 'Word embedding size')  # CNN, C-LSTM
 tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes')  # CNN, C-LSTM
 tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size')  # CNN, C-LSTM
-tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell')  # RNN
-tf.flags.DEFINE_integer('num_layers', 2, 'Number of the LSTM cells')  # RNN, C-LSTM
+tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell')  # RNN, Bi-LSTM
+tf.flags.DEFINE_integer('num_layers', 2, 'Number of the LSTM cells')  # RNN, Bi-LSTM, C-LSTM
 tf.flags.DEFINE_float('keep_prob', 0.5, 'Dropout keep probability')  # All
 tf.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate')  # All
 tf.flags.DEFINE_float('l2_reg_lambda', 0.001, 'L2 regularization lambda')  # All
