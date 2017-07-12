@@ -1,8 +1,8 @@
 # Multi-class Text Classification
-Implement three neural networks in Tensorflow for multi-class text classification problem.
+Implement four neural networks in Tensorflow for multi-class text classification problem.
 ## Models
 * A LSTM classifier. See rnn_classifier.py
-* A Bidirectional LSTM classifier. See rnn_clf.py
+* A Bidirectional LSTM classifier. See rnn_classifier.py
 * A CNN classifier. See cnn_classifier.py. Reference: [Implementing a CNN for Text Classification in Tensorflow](http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/).
 * A C-LSTM classifier. See clstm_classifier.py. Reference: [A C-LSTM Neural Network for Text Classification](https://arxiv.org/abs/1511.08630).
 ## Data Format
