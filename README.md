@@ -1,9 +1,12 @@
 # Multi-class Text Classification
 Implement three neural networks in Tensorflow for multi-class text classification problem.
 ## Models
-* A LSTM classifier.
-* A CNN classifier. Reference: [Implementing a CNN for Text Classification in Tensorflow](http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/).
-* A C-LSTM classifier. Reference: [A C-LSTM Neural Network for Text Classification](https://arxiv.org/abs/1511.08630).
+* A LSTM classifier. See rnn_clf.py
+* A Bidirectional LSTM classifier. See rnn_clf.py
+* A CNN classifier. See cnn_clf.py. Reference: [Implementing a CNN for Text Classification in Tensorflow](http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/).
+* A C-LSTM classifier. See clstm.py. Reference: [A C-LSTM Neural Network for Text Classification](https://arxiv.org/abs/1511.08630).
+## Data Format
+Training data should be stored in csv file. The first line of the file should be ["label", "content"] or ["content", "label"].
 ## Train
 Run train.py to train the models.
 Parameters:
@@ -11,34 +14,37 @@ Parameters:
 python train.py --help
 ```
 ```
-  --clf CLF             Type of classifiers to use. You have three choices:
-                        ['cnn', 'rnn', 'clstm]
+optional arguments:
+  -h, --help            show this help message and exit
+  --clf CLF             Type of classifiers. Default: cnn. You have four
+                        choices: [cnn, lstm, blstm, clstm]
   --data_file DATA_FILE
                         Data file path
   --stop_word_file STOP_WORD_FILE
                         Stop word file path
-  --language LANGUAGE   Language of the data file. You have two choices:
-                        ['ch', 'en']
+  --language LANGUAGE   Language of the data file. You have two choices: [ch,
+                        en]
   --min_frequency MIN_FREQUENCY
                         Minimal word frequency
   --num_classes NUM_CLASSES
                         Number of classes
   --max_length MAX_LENGTH
-                        Length of the longest sentence in the document
+                        Max document length
   --vocab_size VOCAB_SIZE
                         Vocabulary size
   --test_size TEST_SIZE
-                        Test size
+                        Cross validation test size
   --embedding_size EMBEDDING_SIZE
-                        Word embedding size
+                        Word embedding size. For CNN, C-LSTM.
   --filter_sizes FILTER_SIZES
-                        CNN filter size
+                        CNN filter sizes. For CNN, C-LSTM.
   --num_filters NUM_FILTERS
-                        Number of filters per filter size
+                        Number of filters per filter size. For CNN, C-LSTM.
   --hidden_size HIDDEN_SIZE
-                        Number of hidden units in the LSTM cell
+                        Number of hidden units in the LSTM cell. For LSTM, Bi-
+                        LSTM
   --num_layers NUM_LAYERS
-                        Number of the LSTM cells
+                        Number of the LSTM cells. For LSTM, Bi-LSTM, C-LSTM
   --keep_prob KEEP_PROB
                         Dropout keep probability
   --learning_rate LEARNING_RATE
@@ -57,11 +63,7 @@ python train.py --help
   --num_checkpoint NUM_CHECKPOINT
                         Number of models to store
 ```
-You could run a .bat file to search for hyperparameters. For example:
+You could run train.py to start training. For example:
 ```
-python train.py
-python train.py --min_frequency=0
-python train.py --min_frequency=5
-python train.py --learning_rate=0.01
-python train.py --learning_rate=0.1
+python train.py --data_file=./data/data.csv --clf=lstm
 ```
