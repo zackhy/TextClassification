@@ -11,7 +11,7 @@ import numpy as np
 from tensorflow.contrib import learn
 
 
-def load_data(file_path, sw_path, min_frequency=0, max_length=0, language='ch', vocab_processor=None, shuffle=True):
+def load_data(file_path, sw_path=None, min_frequency=0, max_length=0, language='ch', vocab_processor=None, shuffle=True):
     """
     Build dataset for mini-batch iterator
     :param file_path: Data file path
@@ -34,7 +34,10 @@ def load_data(file_path, sw_path, min_frequency=0, max_length=0, language='ch', 
         labels = []
         sentences = []
 
-        sw = _stop_words(sw_path)
+        if sw_path is not None:
+            sw = _stop_words(sw_path)
+        else:
+            sw = None
 
         for line in incsv:
             sent = line[content_idx].strip()
@@ -154,12 +157,12 @@ def _stop_words(path):
 def _clean_data(sent, sw, language='ch'):
     """ Remove special characters and stop words """
     if language == 'ch':
-        sent = re.sub(r"[^\u4e00-\u9fa5A-z0-9]", " ", sent)
-        sent = re.sub('\s+', ' ', sent)
-        sent = re.sub('！+', '！', sent)
-        sent = re.sub('？+', '！', sent)
-        sent = re.sub('。+', '。', sent)
-        sent = re.sub('，+', '，', sent)
+        sent = re.sub(r"[^\u4e00-\u9fa5A-z0-9！？，。]", " ", sent)
+        sent = re.sub('！{2,}', '！', sent)
+        sent = re.sub('？{2,}', '！', sent)
+        sent = re.sub('。{2,}', '。', sent)
+        sent = re.sub('，{2,}', '，', sent)
+        sent = re.sub('\s{2,}', ' ', sent)
     if language == 'en':
         sent = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", sent)
         sent = re.sub(r"\'s", " \'s", sent)
@@ -174,6 +177,7 @@ def _clean_data(sent, sw, language='ch'):
         sent = re.sub(r"\)", " \) ", sent)
         sent = re.sub(r"\?", " \? ", sent)
         sent = re.sub(r"\s{2,}", " ", sent)
-    sent = "".join([word for word in sent if word not in sw])
+    if sw is not None:
+        sent = "".join([word for word in sent if word not in sw])
 
     return sent

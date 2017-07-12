@@ -28,11 +28,11 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 # =============================================================================
 
 # Model choices
-tf.flags.DEFINE_string('clf', 'clstm', "Type of classifiers. Default: cnn. You have three choices: [cnn, rnn, blstm, clstm]")
+tf.flags.DEFINE_string('clf', 'cnn', "Type of classifiers. Default: cnn. You have four choices: [cnn, lstm, blstm, clstm]")
 
 # Data parameters
-tf.flags.DEFINE_string('data_file', 'benchmark.csv', 'Data file path')
-tf.flags.DEFINE_string('stop_word_file', 'stop_words_en.txt', 'Stop word file path')
+tf.flags.DEFINE_string('data_file', None, 'Data file path')
+tf.flags.DEFINE_string('stop_word_file', None, 'Stop word file path')
 tf.flags.DEFINE_string('language', 'en', "Language of the data file. You have two choices: [ch, en]")
 tf.flags.DEFINE_integer('min_frequency', 0, 'Minimal word frequency')
 tf.flags.DEFINE_integer('num_classes', 2, 'Number of classes')
@@ -40,16 +40,12 @@ tf.flags.DEFINE_integer('max_length', 0, 'Max document length')
 tf.flags.DEFINE_integer('vocab_size', 0, 'Vocabulary size')
 tf.flags.DEFINE_float('test_size', 0.1, 'Cross validation test size')
 
-"""
-CNN hyperparameters: embedding_size, filter_sizes, num_filters.
-RNN hyperparameters: hidden_size, num_layers. embedding_size = hidden_size.
-C-LSTM hyperparameters: embedding_size, filter_sizes, num_filters, num_layers. hidden_size = len(filter_sizes) * num_filters.
-"""
-tf.flags.DEFINE_integer('embedding_size', 256, 'Word embedding size')  # CNN, C-LSTM
-tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes')  # CNN, C-LSTM
-tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size')  # CNN, C-LSTM
-tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell')  # RNN, Bi-LSTM
-tf.flags.DEFINE_integer('num_layers', 2, 'Number of the LSTM cells')  # RNN, Bi-LSTM, C-LSTM
+# Model hyperparameters
+tf.flags.DEFINE_integer('embedding_size', 256, 'Word embedding size. For CNN, C-LSTM.')
+tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes. For CNN, C-LSTM.')
+tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size. For CNN, C-LSTM.')
+tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell. For LSTM, Bi-LSTM')
+tf.flags.DEFINE_integer('num_layers', 2, 'Number of the LSTM cells. For LSTM, Bi-LSTM, C-LSTM')
 tf.flags.DEFINE_float('keep_prob', 0.5, 'Dropout keep probability')  # All
 tf.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate')  # All
 tf.flags.DEFINE_float('l2_reg_lambda', 0.001, 'L2 regularization lambda')  # All
@@ -59,11 +55,11 @@ tf.flags.DEFINE_integer('batch_size', 32, 'Batch size')
 tf.flags.DEFINE_integer('num_epochs', 50, 'Number of epochs')
 tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on validation set after this many steps')
 tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
-tf.flags.DEFINE_integer('num_checkpoint', 20, 'Number of models to store')
+tf.flags.DEFINE_integer('num_checkpoint', 10, 'Number of models to store')
 
 FLAGS = tf.flags.FLAGS
 
-if FLAGS.clf == 'rnn':
+if FLAGS.clf == 'lstm':
     FLAGS.embedding_size = FLAGS.hidden_size
 elif FLAGS.clf == 'clstm':
     FLAGS.hidden_size = len(FLAGS.filter_sizes.split(",")) * FLAGS.num_filters
@@ -74,14 +70,7 @@ outdir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 
-# Save parameters to file
-params = FLAGS.__flags
-params_file = open(os.path.join(outdir, 'params.pkl'), 'wb')
-pkl.dump(params, params_file, True)
-params_file.close()
-
-
-# Load data
+# Load and save data
 # =============================================================================
 
 data, labels, lengths, vocab_processor = data_helper.load_data(file_path=FLAGS.data_file,
@@ -98,6 +87,30 @@ FLAGS.vocab_size = len(vocab_processor.vocabulary_._mapping)
 
 FLAGS.max_length = vocab_processor.max_document_length
 
+params = FLAGS.__flags
+# Print parameters
+model = params['clf']
+if model == 'cnn':
+    del params['hidden_size']
+    del params['num_layers']
+elif model == 'lstm' or model == 'blstm':
+    del params['num_filters']
+    del params['filter_sizes']
+    params['embedding_size'] = params['hidden_size']
+elif model == 'clstm':
+    params['hidden_size'] = len(list(map(int, params['filter_sizes'].split(",")))) * params['num_filters']
+
+params_dict = sorted(params.items(), key=lambda x: x[0])
+print('Parameters:')
+for item in params_dict:
+    print('{}: {}'.format(item[0], item[1]))
+print('')
+
+# Save parameters to file
+params_file = open(os.path.join(outdir, 'params.pkl'), 'wb')
+pkl.dump(params, params_file, True)
+params_file.close()
+
 
 # Simple Cross validation
 # TODO use k-fold cross validation
@@ -108,12 +121,6 @@ x_train, x_valid, y_train, y_valid, train_lengths, valid_lengths = train_test_sp
                                                                                     random_state=22)
 # Batch iterator
 train_data = data_helper.batch_iter(x_train, y_train, train_lengths, FLAGS.batch_size, FLAGS.num_epochs)
-flags_dict = sorted(tf.flags.FLAGS.__flags.items(), key=lambda x: x[0])
-# Print parameters
-print('Parameters:')
-for item in flags_dict:
-    print('{}: {}'.format(item[0], item[1]))
-print('')
 
 # Train
 # =============================================================================
@@ -122,12 +129,12 @@ with tf.Graph().as_default():
     with tf.Session() as sess:
         if FLAGS.clf == 'cnn':
             classifier = cnn_clf(FLAGS)
-        elif FLAGS.clf == 'rnn':
+        elif FLAGS.clf == 'lstm' or FLAGS.clf == 'blstm':
             classifier = rnn_clf(FLAGS)
         elif FLAGS.clf == 'clstm':
             classifier = clstm_clf(FLAGS)
         else:
-            raise ValueError('clf should be one of [cnn, rnn, clstm]')
+            raise ValueError('clf should be one of [cnn, lstm, blstm, clstm]')
 
         # Train procedure
         global_step = tf.Variable(0, name='global_step', trainable=False)

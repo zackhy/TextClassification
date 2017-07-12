@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-import tensorflow as tf
-import data_helper
 import numpy as np
+import tensorflow as tf
 
 
 class clstm_clf(object):
@@ -42,7 +41,6 @@ class clstm_clf(object):
 
         conv_outputs = []
         max_feature_length = self.max_length - max(self.filter_sizes) + 1
-        total_filters = len(self.filter_sizes) * self.num_filters
         # Convolutional layer with different lengths of filters in parallel
         # No max-pooling
         for i, filter_size in enumerate(self.filter_sizes):

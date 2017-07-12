@@ -3,7 +3,7 @@ import tensorflow as tf
 
 class rnn_clf(object):
     """"
-    A RNN classifier for text classification
+    LSTM and Bi-LSTM classifiers for text classification
     """
     def __init__(self, config):
         self.num_classes = config.num_classes
@@ -33,18 +33,29 @@ class rnn_clf(object):
         self.inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
 
         # LSTM
-        self.final_state = self.normal_lstm()
+        if config.clf == 'lstm':
+            self.final_state = self.normal_lstm()
+        else:
+            self.final_state = self.bi_lstm()
 
         # Softmax output layer
         with tf.name_scope('softmax'):
-            softmax_w = tf.get_variable('softmax_w', shape=[self.hidden_size, self.num_classes], dtype=tf.float32)
+            # softmax_w = tf.get_variable('softmax_w', shape=[self.hidden_size, self.num_classes], dtype=tf.float32)
+            if config.clf == 'lstm':
+                softmax_w = tf.get_variable('softmax_w', shape=[self.hidden_size, self.num_classes], dtype=tf.float32)
+            else:
+                softmax_w = tf.get_variable('softmax_w', shape=[2 * self.hidden_size, self.num_classes], dtype=tf.float32)
             softmax_b = tf.get_variable('softmax_b', shape=[self.num_classes], dtype=tf.float32)
 
             # L2 regularization for output layer
             self.l2_loss += tf.nn.l2_loss(softmax_w)
             self.l2_loss += tf.nn.l2_loss(softmax_b)
 
-            self.logits = tf.matmul(self.final_state[self.num_layers - 1].h, softmax_w) + softmax_b
+            # self.logits = tf.matmul(self.final_state[self.num_layers - 1].h, softmax_w) + softmax_b
+            if config.clf == 'lstm':
+                self.logits = tf.matmul(self.final_state[self.num_layers - 1].h, softmax_w) + softmax_b
+            else:
+                self.logits = tf.matmul(self.final_state, softmax_w) + softmax_b
             predictions = tf.nn.softmax(self.logits)
             self.predictions = tf.argmax(predictions, 1)
 
@@ -58,7 +69,7 @@ class rnn_clf(object):
                     self.l2_loss += tf.nn.l2_loss(tv)
 
             losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_y,
-                                                                  logits=self.logits)
+                                                                    logits=self.logits)
             self.cost = tf.reduce_mean(losses) + self.l2_reg_lambda * self.l2_loss
 
         # Accuracy
@@ -111,18 +122,20 @@ class rnn_clf(object):
         cell_fw = tf.contrib.rnn.MultiRNNCell([cell_fw] * self.num_layers, state_is_tuple=True)
         cell_bw = tf.contrib.rnn.MultiRNNCell([cell_bw] * self.num_layers, state_is_tuple=True)
 
-        self._initial_state_fw = cell.zero_state(self.batch_size, dtype=tf.float32)
-        self._initial_state_bw = cell.zero_state(self.batch_size, dtype=tf.float32)
+        self._initial_state_fw = cell_fw.zero_state(self.batch_size, dtype=tf.float32)
+        self._initial_state_bw = cell_bw.zero_state(self.batch_size, dtype=tf.float32)
 
         # Dynamic Bi-LSTM
         with tf.variable_scope('Bi-LSTM'):
-            outputs, state = tf.nn.bidirectional_dynamic_rnn(cell_fw,
-                                                             cell_bw,
-                                                             inputs=self.inputs,
-                                                             initial_state_fw=self._initial_state_fw,
-                                                             initial_state_bw=self._initial_state_bw,
-                                                             sequence_length=self.sequence_length)
+            _, state = tf.nn.bidirectional_dynamic_rnn(cell_fw,
+                                                       cell_bw,
+                                                       inputs=self.inputs,
+                                                       initial_state_fw=self._initial_state_fw,
+                                                       initial_state_bw=self._initial_state_bw,
+                                                       sequence_length=self.sequence_length)
 
-        final_state = state
+        state_fw = state[0]
+        state_bw = state[1]
+        output = tf.concat([state_fw[self.num_layers - 1].h, state_bw[self.num_layers - 1].h], 1)
 
-        return final_state
+        return output
