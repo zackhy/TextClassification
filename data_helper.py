@@ -93,6 +93,9 @@ def load_data(file_path, sw_path=None, min_frequency=0, max_length=0, language='
     print('Vocabulary size: {}'.format(len(vocab_processor.vocabulary_._mapping)))
     print('Max document length: {}\n'.format(vocab_processor.max_document_length))
 
+    if vocab_processor is not None:
+        return data, labels, lengths
+    
     return data, labels, lengths, vocab_processor
 
 
