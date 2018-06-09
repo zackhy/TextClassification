@@ -15,9 +15,9 @@ class cnn_clf(object):
         self.l2_reg_lambda = config.l2_reg_lambda
 
         # Placeholders
-        self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, self.max_length])
-        self.input_y = tf.placeholder(dtype=tf.int64, shape=[None])
-        self.keep_prob = tf.placeholder(dtype=tf.float32)
+        self.input_x = tf.placeholder(dtype=tf.int32, shape=[None, self.max_length], name='input_x')
+        self.input_y = tf.placeholder(dtype=tf.int64, shape=[None], name='input_y')
+        self.keep_prob = tf.placeholder(dtype=tf.float32, name='keep_prob')
 
         # L2 loss
         self.l2_loss = tf.constant(0.0)
@@ -72,7 +72,7 @@ class cnn_clf(object):
 
             self.logits = tf.matmul(h_drop, softmax_w) + softmax_b
             predictions = tf.nn.softmax(self.logits)
-            self.predictions = tf.argmax(predictions, 1)
+            self.predictions = tf.argmax(predictions, 1, name='predictions')
 
         # Loss
         with tf.name_scope('loss'):
