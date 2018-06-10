@@ -76,8 +76,6 @@ python test.py --help
 ```
 optional arguments:
   -h, --help            show this help message and exit
-  --clf CLF             Type of classifiers. Default: cnn. You have four
-                        choices: [cnn, lstm, blstm, clstm]
   --test_data_file TEST_DATA_FILE
                         Test data file path
   --run_dir RUN_DIR     Restore the model from this run
@@ -88,5 +86,5 @@ optional arguments:
 ```
 You could run test.py to start evaluation. For example:
 ```
-python test.py --data_file=./data/data.csv --clf=lstm --run_dir=./runs/1111111111 --clf=clf-10000
+python test.py --data_file=./data/data.csv --run_dir=./runs/1111111111 --clf=clf-10000
 ```
