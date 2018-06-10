@@ -54,7 +54,7 @@ tf.flags.DEFINE_float('l2_reg_lambda', 0.001, 'L2 regularization lambda')  # All
 tf.flags.DEFINE_integer('batch_size', 32, 'Batch size')
 tf.flags.DEFINE_integer('num_epochs', 50, 'Number of epochs')
 tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on validation set after this many steps')
-tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
+tf.flags.DEFINE_integer('save_every_steps', 10, 'Save the model after this many steps')
 tf.flags.DEFINE_integer('num_checkpoint', 10, 'Number of models to store')
 
 FLAGS = tf.flags.FLAGS
@@ -78,6 +78,7 @@ data, labels, lengths, vocab_processor = data_helper.load_data(file_path=FLAGS.d
                                                                min_frequency=FLAGS.min_frequency,
                                                                max_length=FLAGS.max_length,
                                                                language=FLAGS.language,
+                                                               vocab_processor=None,
                                                                shuffle=True)
 
 # Save vocabulary processor
