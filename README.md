@@ -86,5 +86,5 @@ optional arguments:
 ```
 You could run test.py to start evaluation. For example:
 ```
-python test.py --data_file=./data/data.csv --run_dir=./runs/1111111111 --clf=clf-10000
+python test.py --test_data_file=./data/data.csv --run_dir=./runs/1111111111 --clf=clf-10000
 ```
