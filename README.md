@@ -68,7 +68,7 @@ You could run train.py to start training. For example:
 python train.py --data_file=./data/data.csv --clf=lstm
 ```
 ## Test 
-Run test.py to evaluate the trained model 
+Run test.py to evaluate the trained model  
 Parameters: 
 ```
 python test.py --help
