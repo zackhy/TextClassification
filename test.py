@@ -14,9 +14,6 @@ from clstm_classifier import clstm_clf
 # Show warnings and errors only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# Trained model type
-tf.flags.DEFINE_string('clf', 'cnn', "Type of classifiers. Default: cnn. You have four choices: [cnn, lstm, blstm, clstm]")
-
 # File paths
 tf.flags.DEFINE_string('test_data_file', None, 'Test data file path')
 tf.flags.DEFINE_string('run_dir', None, 'Restore the model from this run')
@@ -69,7 +66,7 @@ with graph.as_default():
     # Test
     for batch in batches:
         x_test, y_test, x_lengths = batch
-        if FLAGS.clf == 'cnn':
+        if params['clf'] == 'cnn':
             feed_dict = {input_x: x_test, input_y: y_test, keep_prob: 1.0}
             batch_predictions, batch_accuracy = sess.run([predictions, accuracy], feed_dict)
         else:
