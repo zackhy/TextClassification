@@ -2,14 +2,11 @@
 import os
 import csv
 import numpy as np
+import pickle as pkl
 import tensorflow as tf
 from tensorflow.contrib import learn
 
 import data_helper
-import pickle as pkl
-from rnn_classifier import rnn_clf
-from cnn_classifier import cnn_clf
-from clstm_classifier import clstm_clf
 
 # Show warnings and errors only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
