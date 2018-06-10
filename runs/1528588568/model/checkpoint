@@ -1,4 +1,0 @@
-model_checkpoint_path: "C:\\Users\\TF\\Documents\\GitHub\\TextClassification\\runs\\1528588568\\model/clf-30"
-all_model_checkpoint_paths: "C:\\Users\\TF\\Documents\\GitHub\\TextClassification\\runs\\1528588568\\model/clf-10"
-all_model_checkpoint_paths: "C:\\Users\\TF\\Documents\\GitHub\\TextClassification\\runs\\1528588568\\model/clf-20"
-all_model_checkpoint_paths: "C:\\Users\\TF\\Documents\\GitHub\\TextClassification\\runs\\1528588568\\model/clf-30"
