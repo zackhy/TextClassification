@@ -17,7 +17,7 @@ tf.flags.DEFINE_string('run_dir', None, 'Restore the model from this run')
 tf.flags.DEFINE_string('checkpoint', None, 'Restore the graph from this checkpoint')
 
 # Test batch size
-tf.flags.DEFINE_string('batch_size', 64, 'Test batch size')
+tf.flags.DEFINE_integer('batch_size', 64, 'Test batch size')
 
 FLAGS = tf.flags.FLAGS
 
