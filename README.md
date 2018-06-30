@@ -5,6 +5,10 @@ Implement four neural networks in Tensorflow for multi-class text classification
 * A Bidirectional LSTM classifier. See rnn_classifier.py
 * A CNN classifier. See cnn_classifier.py. Reference: [Implementing a CNN for Text Classification in Tensorflow](http://www.wildml.com/2015/12/implementing-a-cnn-for-text-classification-in-tensorflow/).
 * A C-LSTM classifier. See clstm_classifier.py. Reference: [A C-LSTM Neural Network for Text Classification](https://arxiv.org/abs/1511.08630).
+## Requirements  
+* Python 3.x  
+* Tensorflow > 1.2.1  
+* Sklearn > 0.19.0  
 ## Data Format
 Training data should be stored in csv file. The first line of the file should be ["label", "content"] or ["content", "label"].
 ## Train
