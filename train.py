@@ -53,6 +53,8 @@ tf.flags.DEFINE_float('l2_reg_lambda', 0.001, 'L2 regularization lambda')  # All
 # Training parameters
 tf.flags.DEFINE_integer('batch_size', 32, 'Batch size')
 tf.flags.DEFINE_integer('num_epochs', 50, 'Number of epochs')
+tf.flags.DEFINE_float('decay_rate', 1, 'Learning rate decay rate. Range: (0, 1]')  # Learning rate decay
+tf.flags.DEFINE_integer('decay_steps', 100000, 'Learning rate decay steps')  # Learning rate decay
 tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on validation set after this many steps')
 tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
 tf.flags.DEFINE_integer('num_checkpoint', 10, 'Number of models to store')
@@ -113,7 +115,6 @@ params_file.close()
 
 
 # Simple Cross validation
-# TODO use k-fold cross validation
 x_train, x_valid, y_train, y_valid, train_lengths, valid_lengths = train_test_split(data,
                                                                                     labels,
                                                                                     lengths,
@@ -138,7 +139,14 @@ with tf.Graph().as_default():
 
         # Train procedure
         global_step = tf.Variable(0, name='global_step', trainable=False)
-        optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate)
+        # Learning rate decay
+        starter_learning_rate = FLAGS.learning_rate
+        learning_rate = tf.train.exponential_decay(starter_learning_rate,
+                                                   global_step,
+                                                   FLAGS.decay_steps,
+                                                   FLAGS.decay_rate,
+                                                   staircase=True)
+        optimizer = tf.train.AdamOptimizer(learning_rate)
         grads_and_vars = optimizer.compute_gradients(classifier.cost)
         train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
@@ -167,7 +175,8 @@ with tf.Graph().as_default():
 
             fetches = {'step': global_step,
                        'cost': classifier.cost,
-                       'accuracy': classifier.accuracy}
+                       'accuracy': classifier.accuracy,
+                       'learning_rate': learning_rate}
             feed_dict = {classifier.input_x: input_x,
                          classifier.input_y: input_y}
 
