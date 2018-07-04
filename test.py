@@ -19,7 +19,7 @@ tf.flags.DEFINE_string('checkpoint', None, 'Restore the graph from this checkpoi
 # Test batch size
 tf.flags.DEFINE_integer('batch_size', 64, 'Test batch size')
 
-FLAGS = tf.flags.FLAGS
+FLAGS = tf.app.flags.FLAGS
 
 # Restore parameters
 with open(os.path.join(FLAGS.run_dir, 'params.pkl'), 'rb') as f:

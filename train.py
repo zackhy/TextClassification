@@ -57,7 +57,7 @@ tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on vali
 tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
 tf.flags.DEFINE_integer('num_checkpoint', 10, 'Number of models to store')
 
-FLAGS = tf.flags.FLAGS
+FLAGS = tf.app.flags.FLAGS
 
 if FLAGS.clf == 'lstm':
     FLAGS.embedding_size = FLAGS.hidden_size
@@ -87,7 +87,7 @@ FLAGS.vocab_size = len(vocab_processor.vocabulary_._mapping)
 
 FLAGS.max_length = vocab_processor.max_document_length
 
-params = FLAGS.__flags
+params = FLAGS.flag_values_dict()
 # Print parameters
 model = params['clf']
 if model == 'cnn':
