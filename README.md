@@ -16,7 +16,6 @@ Run train.py to train the models.
 Parameters:
 ```
 optional arguments:
-  -h, --help            show this help message and exit
   --clf CLF             Type of classifiers. Default: cnn. You have four
                         choices: [cnn, lstm, blstm, clstm]
   --data_file DATA_FILE
@@ -76,11 +75,7 @@ python train.py --data_file=./data/data.csv --clf=lstm
 Run test.py to evaluate the trained model  
 Parameters: 
 ```
-python test.py --help
-```
-```
 optional arguments:
-  -h, --help            show this help message and exit
   --test_data_file TEST_DATA_FILE
                         Test data file path
   --run_dir RUN_DIR     Restore the model from this run
