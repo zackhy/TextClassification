@@ -15,9 +15,6 @@ Training data should be stored in csv file. The first line of the file should be
 Run train.py to train the models.
 Parameters:
 ```
-python train.py --help
-```
-```
 optional arguments:
   -h, --help            show this help message and exit
   --clf CLF             Type of classifiers. Default: cnn. You have four
@@ -59,6 +56,10 @@ optional arguments:
                         Batch size
   --num_epochs NUM_EPOCHS
                         Number of epochs
+  --decay_rate DECAY_RATE
+                        Learning rate decay rate. Range: (0, 1]
+  --decay_steps DECAY_STEPS
+                        Learning rate decay steps.
   --evaluate_every_steps EVALUATE_EVERY_STEPS
                         Evaluate the model on validation set after this many
                         steps
