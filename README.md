@@ -71,6 +71,13 @@ You could run train.py to start training. For example:
 ```
 python train.py --data_file=./data/data.csv --clf=lstm
 ```
+
+After the training is done, you can use tensorboard to see the visualizations of the graph, losses and evaluation metrics:  
+
+```
+tensorboard --logdir=./runs/1111111111/summaries
+```
+
 ## Test 
 Run test.py to evaluate the trained model  
 Parameters: 
