@@ -41,7 +41,7 @@ tf.flags.DEFINE_integer('vocab_size', 0, 'Vocabulary size')
 tf.flags.DEFINE_float('test_size', 0.1, 'Cross validation test size')
 
 # Model hyperparameters
-tf.flags.DEFINE_integer('embedding_size', 256, 'Word embedding size. For CNN, C-LSTM.')
+tf.flags.DEFINE_integer('embedding_size', 300, 'Word embedding size. For CNN, C-LSTM.')
 tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes. For CNN, C-LSTM.')
 tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size. For CNN, C-LSTM.')
 tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell. For LSTM, Bi-LSTM')
@@ -89,7 +89,7 @@ FLAGS.vocab_size = len(vocab_processor.vocabulary_._mapping)
 
 FLAGS.max_length = vocab_processor.max_document_length
 
-FLAGS.index2embeddings = data_helper.create_index2embeddings(vocab_processor.vocabulary_._mapping)
+vocab_embeddings, FLAGS.embedding_size = data_helper.create_vocab_embeddings(vocab_processor.vocabulary_._mapping)
 
 params = FLAGS.flag_values_dict()
 # Print parameters

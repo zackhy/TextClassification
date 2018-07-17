@@ -6,6 +6,8 @@ import csv
 import time
 import json
 import collections
+sys.path.append(os.path.abspath(os.path.join('..', '..', 'embeddings')))
+import embeddings
 
 import numpy as np
 from tensorflow.contrib import learn
@@ -120,6 +122,25 @@ def batch_iter(data, labels, lengths, batch_size, num_epochs):
             sequence_length = lengths[start_index: end_index]
 
             yield xdata, ydata, sequence_length
+
+def create_vocab_embeddings(vocab2index):
+  """ Return pretrained word vectors. """
+  embedding_dim = 300
+  word_embedding_lookup = embeddings.GloveEmbedding('common_crawl_840', d_emb=embedding_dim, show_progress=True)
+  index2embedding = []
+
+  index2vocab = {v: k for k, v in vocab2index.items()}
+
+  for index in range(len(vocab2index)):
+    word = index2vocab[index]
+    if word == '<PAD>':
+      embedding = np.zeros(embedding_dim)
+    else:
+      embedding = word_embedding_lookup.emb(word)
+    if None in embedding:
+      embedding = np.random.randn(embedding_dim)
+    index2embedding.append(embedding)
+  return np.vstack(index2embedding), embedding_dim
 
 # --------------- Private Methods ---------------
 
