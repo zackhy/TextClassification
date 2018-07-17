@@ -5,6 +5,7 @@ import numpy as np
 import pickle as pkl
 import tensorflow as tf
 from tensorflow.contrib import learn
+from sklearn.metrics import precision_score, recall_score, f1_score
 
 import data_helper
 
@@ -80,6 +81,8 @@ with graph.as_default():
 
 # Print test accuracy
 print('Test accuracy: {}'.format(final_accuracy))
+true_classes = labels[:len(all_predictions)]
+print('Test precision: {}, recall: {}, F1: {}'.format(precision_score(true_classes, all_predictions), recall_score(true_classes, all_predictions), f1_score(true_classes, all_predictions)))
 
 # Save all predictions
 with open(os.path.join(FLAGS.run_dir, 'predictions.csv'), 'w', encoding='utf-8', newline='') as f:
