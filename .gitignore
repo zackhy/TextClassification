@@ -50,3 +50,4 @@ Temporary Items
 runs/
 
 __pycache__/
+.idea/

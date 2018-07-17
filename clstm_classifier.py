@@ -31,8 +31,11 @@ class clstm_clf(object):
 
         # Word embedding
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            embedding = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0),
-                                    name="embedding")
+            if config.index2embedding is not None:
+                embedding = tf.get_variable(name="embedding", initializer=config.index2embedding)
+            else:
+                embedding = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0),
+                                        name="embedding")
             embed = tf.nn.embedding_lookup(embedding, self.input_x)
             inputs = tf.expand_dims(embed, -1)
 

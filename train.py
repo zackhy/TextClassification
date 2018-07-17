@@ -89,6 +89,8 @@ FLAGS.vocab_size = len(vocab_processor.vocabulary_._mapping)
 
 FLAGS.max_length = vocab_processor.max_document_length
 
+FLAGS.index2embeddings = data_helper.create_index2embeddings(vocab_processor.vocabulary_._mapping)
+
 params = FLAGS.flag_values_dict()
 # Print parameters
 model = params['clf']
