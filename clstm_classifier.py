@@ -32,6 +32,7 @@ class clstm_clf(object):
         # Word embeddings
         with tf.device('/cpu:0'), tf.name_scope('embeddings'):
             if vocab_embeddings is not None:
+                print('Use vocab embeddings of size {}'.format(len(vocab_embeddings)))
                 embeddings = tf.get_variable(name="embeddings", initializer=vocab_embeddings)
             else:
                 embeddings = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0),

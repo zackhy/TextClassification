@@ -140,7 +140,7 @@ def create_vocab_embeddings(vocab2index):
     if None in embedding:
       embedding = np.random.randn(embedding_dim)
     index2embedding.append(embedding)
-  return np.vstack(index2embedding), embedding_dim
+  return np.vstack(index2embedding).astype(np.float32), embedding_dim
 
 # --------------- Private Methods ---------------
 

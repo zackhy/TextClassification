@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import numpy as np
 import os
 import sys
 import csv
@@ -100,7 +101,8 @@ if model == 'cnn':
 elif model == 'lstm' or model == 'blstm':
     del params['num_filters']
     del params['filter_sizes']
-    params['embedding_size'] = params['hidden_size']
+    # params['embedding_size'] = params['hidden_size']
+    params['hidden_size'] = params['embedding_size']
 elif model == 'clstm':
     params['hidden_size'] = len(list(map(int, params['filter_sizes'].split(",")))) * params['num_filters']
 
@@ -133,9 +135,9 @@ with tf.Graph().as_default():
         if FLAGS.clf == 'cnn':
             classifier = cnn_clf(FLAGS)
         elif FLAGS.clf == 'lstm' or FLAGS.clf == 'blstm':
-            classifier = rnn_clf(FLAGS)
+            classifier = rnn_clf(FLAGS, vocab_embeddings.astype(np.float32))
         elif FLAGS.clf == 'clstm':
-            classifier = clstm_clf(FLAGS)
+            classifier = clstm_clf(FLAGS, vocab_embeddings.astype(np.float32))
         else:
             raise ValueError('clf should be one of [cnn, lstm, blstm, clstm]')
 
