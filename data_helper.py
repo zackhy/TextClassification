@@ -9,6 +9,8 @@ import collections
 sys.path.append(os.path.abspath(os.path.join('..', '..', 'embeddings')))
 import embeddings
 
+import word_embeddings_loader
+
 import numpy as np
 from tensorflow.contrib import learn
 
@@ -125,8 +127,11 @@ def batch_iter(data, labels, lengths, batch_size, num_epochs):
 
 def create_vocab_embeddings(vocab2index):
   """ Return pretrained word vectors. """
-  embedding_dim = 300
-  word_embedding_lookup = embeddings.GloveEmbedding('common_crawl_840', d_emb=embedding_dim, show_progress=True)
+  # embedding_dim = 300
+  # word_embedding_lookup = embeddings.GloveEmbedding('common_crawl_840', d_emb=embedding_dim, show_progress=True)
+  word_embedding_lookup, embedding_dim = word_embeddings_loader.load_embedding_dict('sskip',
+          '/mnt/sda2/ducbui/harkous_leo_backup/data_polisis_embeddings/embeddings/policies_model_300.vec.gz')
+  assert embedding_dim == 300
   index2embedding = []
 
   index2vocab = {v: k for k, v in vocab2index.items()}
@@ -136,9 +141,7 @@ def create_vocab_embeddings(vocab2index):
     if word == '<PAD>':
       embedding = np.zeros(embedding_dim)
     else:
-      embedding = word_embedding_lookup.emb(word)
-    if None in embedding:
-      embedding = np.random.randn(embedding_dim)
+      embedding = word_embedding_lookup.get(word, np.random.randn(embedding_dim))
     index2embedding.append(embedding)
   return np.vstack(index2embedding).astype(np.float32), embedding_dim
 

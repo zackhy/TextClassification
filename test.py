@@ -80,9 +80,9 @@ with graph.as_default():
     final_accuracy = sum_accuracy / num_batches
 
 # Print test accuracy
-print('Test accuracy: {}'.format(final_accuracy))
+print('Test accuracy: {:.4f}'.format(final_accuracy))
 true_classes = labels[:len(all_predictions)]
-print('Test precision: {}, recall: {}, F1: {}'.format(precision_score(true_classes, all_predictions), recall_score(true_classes, all_predictions), f1_score(true_classes, all_predictions)))
+print('Test precision: {:.4f}, recall: {:.4f}, F1: {:.4f}'.format(precision_score(true_classes, all_predictions), recall_score(true_classes, all_predictions), f1_score(true_classes, all_predictions)))
 
 # Save all predictions
 with open(os.path.join(FLAGS.run_dir, 'predictions.csv'), 'w', encoding='utf-8', newline='') as f:
