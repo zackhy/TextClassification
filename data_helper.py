@@ -9,7 +9,7 @@ import collections
 sys.path.append(os.path.abspath(os.path.join('..', '..', 'embeddings')))
 import embeddings
 
-import word_embeddings_loader
+from . import word_embeddings_loader
 
 import numpy as np
 from tensorflow.contrib import learn
@@ -130,7 +130,7 @@ def create_vocab_embeddings(vocab2index):
   # embedding_dim = 300
   # word_embedding_lookup = embeddings.GloveEmbedding('common_crawl_840', d_emb=embedding_dim, show_progress=True)
   word_embedding_lookup, embedding_dim = word_embeddings_loader.load_embedding_dict('sskip',
-          '/mnt/sda2/ducbui/harkous_leo_backup/data_polisis_embeddings/embeddings/policies_model_300.vec.gz')
+          '/mnt/sda2/ducbui/harkous/data_polisis_embeddings/embeddings/policies_model_300.vec.gz')
   assert embedding_dim == 300
   index2embedding = []
 

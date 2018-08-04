@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow.contrib import learn
 from sklearn.metrics import precision_score, recall_score, f1_score
 
-import data_helper
+from . import data_helper
 
 # Show warnings and errors only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'

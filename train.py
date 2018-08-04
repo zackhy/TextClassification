@@ -10,10 +10,10 @@ import pickle as pkl
 import tensorflow as tf
 from tensorflow.contrib import learn
 
-import data_helper
-from rnn_classifier import rnn_clf
-from cnn_classifier import cnn_clf
-from clstm_classifier import clstm_clf
+from . import data_helper
+from .rnn_classifier import rnn_clf
+from .cnn_classifier import cnn_clf
+from .clstm_classifier import clstm_clf
 
 try:
     from sklearn.model_selection import train_test_split
