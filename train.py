@@ -9,6 +9,7 @@ import datetime
 import pickle as pkl
 import tensorflow as tf
 from tensorflow.contrib import learn
+from sklearn.metrics import precision_recall_fscore_support
 
 from . import data_helper
 from .rnn_classifier import rnn_clf
@@ -59,8 +60,11 @@ tf.flags.DEFINE_integer('decay_steps', 100000, 'Learning rate decay steps')  # L
 tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on validation set after this many steps')
 tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
 tf.flags.DEFINE_integer('num_checkpoint', 10, 'Number of models to store')
+tf.flags.DEFINE_integer('max_steps', 1000, 'Maximum number steps to run')
 
 FLAGS = tf.app.flags.FLAGS
+
+assert FLAGS.max_steps >= FLAGS.save_every_steps and FLAGS.max_steps % FLAGS.save_every_steps == 0
 
 if FLAGS.clf == 'lstm':
     FLAGS.embedding_size = FLAGS.hidden_size
@@ -130,7 +134,8 @@ train_data = data_helper.batch_iter(x_train, y_train, train_lengths, FLAGS.batch
 # Train
 # =============================================================================
 
-with tf.Graph().as_default():
+graph = tf.Graph()
+with graph.as_default():
     with tf.Session() as sess:
         if FLAGS.clf == 'cnn':
             classifier = cnn_clf(FLAGS)
@@ -180,6 +185,7 @@ with tf.Graph().as_default():
             fetches = {'step': global_step,
                        'cost': classifier.cost,
                        'accuracy': classifier.accuracy,
+                       'predictions': graph.get_tensor_by_name('softmax/predictions:0'),
                        'learning_rate': learning_rate}
             feed_dict = {classifier.input_x: input_x,
                          classifier.input_y: input_y}
@@ -202,6 +208,7 @@ with tf.Graph().as_default():
             cost = vars['cost']
             accuracy = vars['accuracy']
             summaries = vars['summaries']
+            predictions = vars['predictions']
 
             # Write summaries to file
             if is_training:
@@ -210,23 +217,42 @@ with tf.Graph().as_default():
                 valid_summary_writer.add_summary(summaries, step)
 
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step: {}, loss: {:g}, accuracy: {:g}".format(time_str, step, cost, accuracy))
-
-            return accuracy
+            if is_training:
+                print("{}: step: {}, loss: {:g}, accuracy: {:g}".format(time_str, step, cost, accuracy))
+            else:
+                precision, recall, f1, _ = precision_recall_fscore_support(input_y, predictions)
+                print('Validation {:.4f} | {:.4f} | {:.4f}'.format(precision[1], recall[1], f1[1]))
+                return precision[1], recall[1], f1[1]
 
 
         print('Start training ...')
 
+        prec_valid, recall_valid = 0, 0
+        best_f1_valid = 0
+        step_count = 0
         for train_input in train_data:
             run_step(train_input, is_training=True)
             current_step = tf.train.global_step(sess, global_step)
 
             if current_step % FLAGS.evaluate_every_steps == 0:
                 print('\nValidation')
-                run_step((x_valid, y_valid, valid_lengths), is_training=False)
+                p_valid, r_valid, f1_valid = run_step((x_valid, y_valid, valid_lengths), is_training=False)
                 print('')
+                if f1_valid > best_f1_valid:
+                    prec_valid = p_valid
+                    recall_valid = r_valid
+                    best_f1_valid = f1_valid
+                    best_val_step = current_step
 
             if current_step % FLAGS.save_every_steps == 0:
                 save_path = saver.save(sess, os.path.join(outdir, 'model/clf'), current_step)
 
-        print('\nAll the files have been saved to {}\n'.format(outdir))
+            step_count += 1
+            if step_count >= FLAGS.max_steps:
+                break
+
+
+        print('Best validation: {:.4f} | {:.4f} | {:.4f}, at step: {}'.format(prec_valid, recall_valid, best_f1_valid, best_val_step))
+        print('All the files have been saved to {}'.format(outdir))
+        # need to print out the best validation: % % % + test: % % % with the maximum validation
+        # then se can get the best performance score for a set of hyperparameters.

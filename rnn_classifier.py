@@ -79,7 +79,7 @@ class rnn_clf(object):
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, self.input_y)
-            self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
+            # self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')
 
     def normal_lstm(self):
