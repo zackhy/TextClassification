@@ -5,8 +5,9 @@ import numpy as np
 import pickle as pkl
 import tensorflow as tf
 from tensorflow.contrib import learn
+from sklearn.metrics import precision_score, recall_score, f1_score
 
-import data_helper
+from . import data_helper
 
 # Show warnings and errors only
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -78,9 +79,6 @@ with graph.as_default():
 
     final_accuracy = sum_accuracy / num_batches
 
-# Print test accuracy
-print('Test accuracy: {}'.format(final_accuracy))
-
 # Save all predictions
 with open(os.path.join(FLAGS.run_dir, 'predictions.csv'), 'w', encoding='utf-8', newline='') as f:
     csvwriter = csv.writer(f)
@@ -88,3 +86,8 @@ with open(os.path.join(FLAGS.run_dir, 'predictions.csv'), 'w', encoding='utf-8',
     for i in range(len(all_predictions)):
         csvwriter.writerow([labels[i], all_predictions[i]])
     print('Predictions saved to {}'.format(os.path.join(FLAGS.run_dir, 'predictions.csv')))
+
+# Print test accuracy
+print('Test accuracy: {:.4f}'.format(final_accuracy))
+true_classes = labels[:len(all_predictions)]
+print('Test scores: {:.4f} | {:.4f} | {:.4f}'.format(precision_score(true_classes, all_predictions), recall_score(true_classes, all_predictions), f1_score(true_classes, all_predictions)))

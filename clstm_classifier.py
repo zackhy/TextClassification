@@ -8,7 +8,7 @@ class clstm_clf(object):
     A C-LSTM classifier for text classification
     Reference: A C-LSTM Neural Network for Text Classification
     """
-    def __init__(self, config):
+    def __init__(self, config, vocab_embeddings=None):
         self.max_length = config.max_length
         self.num_classes = config.num_classes
         self.vocab_size = config.vocab_size
@@ -29,11 +29,15 @@ class clstm_clf(object):
         # L2 loss
         self.l2_loss = tf.constant(0.0)
 
-        # Word embedding
-        with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            embedding = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0),
-                                    name="embedding")
-            embed = tf.nn.embedding_lookup(embedding, self.input_x)
+        # Word embeddings
+        with tf.device('/cpu:0'), tf.name_scope('embeddings'):
+            if vocab_embeddings is not None:
+                print('Use vocab embeddings of size {}'.format(len(vocab_embeddings)))
+                embeddings = tf.get_variable(name="embeddings", initializer=vocab_embeddings)
+            else:
+                embeddings = tf.Variable(tf.random_uniform([self.vocab_size, self.embedding_size], -1.0, 1.0),
+                                        name="embeddings")
+            embed = tf.nn.embedding_lookup(embeddings, self.input_x)
             inputs = tf.expand_dims(embed, -1)
 
         # Input dropout

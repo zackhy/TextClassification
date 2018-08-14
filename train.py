@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import numpy as np
 import os
 import sys
 import csv
@@ -8,11 +9,12 @@ import datetime
 import pickle as pkl
 import tensorflow as tf
 from tensorflow.contrib import learn
+from sklearn.metrics import precision_recall_fscore_support
 
-import data_helper
-from rnn_classifier import rnn_clf
-from cnn_classifier import cnn_clf
-from clstm_classifier import clstm_clf
+from . import data_helper
+from .rnn_classifier import rnn_clf
+from .cnn_classifier import cnn_clf
+from .clstm_classifier import clstm_clf
 
 try:
     from sklearn.model_selection import train_test_split
@@ -41,7 +43,7 @@ tf.flags.DEFINE_integer('vocab_size', 0, 'Vocabulary size')
 tf.flags.DEFINE_float('test_size', 0.1, 'Cross validation test size')
 
 # Model hyperparameters
-tf.flags.DEFINE_integer('embedding_size', 256, 'Word embedding size. For CNN, C-LSTM.')
+tf.flags.DEFINE_integer('embedding_size', 300, 'Word embedding size. For CNN, C-LSTM.')
 tf.flags.DEFINE_string('filter_sizes', '3, 4, 5', 'CNN filter sizes. For CNN, C-LSTM.')
 tf.flags.DEFINE_integer('num_filters', 128, 'Number of filters per filter size. For CNN, C-LSTM.')
 tf.flags.DEFINE_integer('hidden_size', 128, 'Number of hidden units in the LSTM cell. For LSTM, Bi-LSTM')
@@ -58,8 +60,11 @@ tf.flags.DEFINE_integer('decay_steps', 100000, 'Learning rate decay steps')  # L
 tf.flags.DEFINE_integer('evaluate_every_steps', 100, 'Evaluate the model on validation set after this many steps')
 tf.flags.DEFINE_integer('save_every_steps', 1000, 'Save the model after this many steps')
 tf.flags.DEFINE_integer('num_checkpoint', 10, 'Number of models to store')
+tf.flags.DEFINE_integer('max_steps', 1000, 'Maximum number steps to run')
 
 FLAGS = tf.app.flags.FLAGS
+
+assert FLAGS.max_steps >= FLAGS.save_every_steps and FLAGS.max_steps % FLAGS.save_every_steps == 0
 
 if FLAGS.clf == 'lstm':
     FLAGS.embedding_size = FLAGS.hidden_size
@@ -89,6 +94,8 @@ FLAGS.vocab_size = len(vocab_processor.vocabulary_._mapping)
 
 FLAGS.max_length = vocab_processor.max_document_length
 
+vocab_embeddings, FLAGS.embedding_size = data_helper.create_vocab_embeddings(vocab_processor.vocabulary_._mapping)
+
 params = FLAGS.flag_values_dict()
 # Print parameters
 model = params['clf']
@@ -98,7 +105,8 @@ if model == 'cnn':
 elif model == 'lstm' or model == 'blstm':
     del params['num_filters']
     del params['filter_sizes']
-    params['embedding_size'] = params['hidden_size']
+    # params['embedding_size'] = params['hidden_size']
+    params['hidden_size'] = params['embedding_size']
 elif model == 'clstm':
     params['hidden_size'] = len(list(map(int, params['filter_sizes'].split(",")))) * params['num_filters']
 
@@ -126,14 +134,15 @@ train_data = data_helper.batch_iter(x_train, y_train, train_lengths, FLAGS.batch
 # Train
 # =============================================================================
 
-with tf.Graph().as_default():
+graph = tf.Graph()
+with graph.as_default():
     with tf.Session() as sess:
         if FLAGS.clf == 'cnn':
             classifier = cnn_clf(FLAGS)
         elif FLAGS.clf == 'lstm' or FLAGS.clf == 'blstm':
-            classifier = rnn_clf(FLAGS)
+            classifier = rnn_clf(FLAGS, vocab_embeddings.astype(np.float32))
         elif FLAGS.clf == 'clstm':
-            classifier = clstm_clf(FLAGS)
+            classifier = clstm_clf(FLAGS, vocab_embeddings.astype(np.float32))
         else:
             raise ValueError('clf should be one of [cnn, lstm, blstm, clstm]')
 
@@ -176,6 +185,7 @@ with tf.Graph().as_default():
             fetches = {'step': global_step,
                        'cost': classifier.cost,
                        'accuracy': classifier.accuracy,
+                       'predictions': graph.get_tensor_by_name('softmax/predictions:0'),
                        'learning_rate': learning_rate}
             feed_dict = {classifier.input_x: input_x,
                          classifier.input_y: input_y}
@@ -198,6 +208,7 @@ with tf.Graph().as_default():
             cost = vars['cost']
             accuracy = vars['accuracy']
             summaries = vars['summaries']
+            predictions = vars['predictions']
 
             # Write summaries to file
             if is_training:
@@ -206,23 +217,42 @@ with tf.Graph().as_default():
                 valid_summary_writer.add_summary(summaries, step)
 
             time_str = datetime.datetime.now().isoformat()
-            print("{}: step: {}, loss: {:g}, accuracy: {:g}".format(time_str, step, cost, accuracy))
-
-            return accuracy
+            if is_training:
+                print("{}: step: {}, loss: {:g}, accuracy: {:g}".format(time_str, step, cost, accuracy))
+            else:
+                precision, recall, f1, _ = precision_recall_fscore_support(input_y, predictions)
+                print('Validation {:.4f} | {:.4f} | {:.4f}'.format(precision[1], recall[1], f1[1]))
+                return precision[1], recall[1], f1[1]
 
 
         print('Start training ...')
 
+        prec_valid, recall_valid = 0, 0
+        best_f1_valid = 0
+        step_count = 0
         for train_input in train_data:
             run_step(train_input, is_training=True)
             current_step = tf.train.global_step(sess, global_step)
 
             if current_step % FLAGS.evaluate_every_steps == 0:
                 print('\nValidation')
-                run_step((x_valid, y_valid, valid_lengths), is_training=False)
+                p_valid, r_valid, f1_valid = run_step((x_valid, y_valid, valid_lengths), is_training=False)
                 print('')
+                if f1_valid > best_f1_valid:
+                    prec_valid = p_valid
+                    recall_valid = r_valid
+                    best_f1_valid = f1_valid
+                    best_val_step = current_step
 
             if current_step % FLAGS.save_every_steps == 0:
                 save_path = saver.save(sess, os.path.join(outdir, 'model/clf'), current_step)
 
-        print('\nAll the files have been saved to {}\n'.format(outdir))
+            step_count += 1
+            if step_count >= FLAGS.max_steps:
+                break
+
+
+        print('Best validation: {:.4f} | {:.4f} | {:.4f}, at step: {}'.format(prec_valid, recall_valid, best_f1_valid, best_val_step))
+        print('All the files have been saved to {}'.format(outdir))
+        # need to print out the best validation: % % % + test: % % % with the maximum validation
+        # then se can get the best performance score for a set of hyperparameters.

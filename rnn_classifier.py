@@ -5,7 +5,7 @@ class rnn_clf(object):
     """"
     LSTM and Bi-LSTM classifiers for text classification
     """
-    def __init__(self, config):
+    def __init__(self, config, vocab_embeddings=None):
         self.num_classes = config.num_classes
         self.vocab_size = config.vocab_size
         self.hidden_size = config.hidden_size
@@ -24,10 +24,14 @@ class rnn_clf(object):
 
         # Word embedding
         with tf.device('/cpu:0'), tf.name_scope('embedding'):
-            embedding = tf.get_variable('embedding',
-                                        shape=[self.vocab_size, self.hidden_size],
-                                        dtype=tf.float32)
-            inputs = tf.nn.embedding_lookup(embedding, self.input_x)
+            if vocab_embeddings is not None:
+                print('Use vocab embeddings of size {}'.format(len(vocab_embeddings)))
+                embeddings = tf.get_variable(name="embeddings", initializer=vocab_embeddings)
+            else:
+                embeddings = tf.get_variable('embedding',
+                                            shape=[self.vocab_size, self.hidden_size],
+                                            dtype=tf.float32)
+            inputs = tf.nn.embedding_lookup(embeddings, self.input_x)
 
         # Input dropout
         self.inputs = tf.nn.dropout(inputs, keep_prob=self.keep_prob)
@@ -75,7 +79,7 @@ class rnn_clf(object):
         # Accuracy
         with tf.name_scope('accuracy'):
             correct_predictions = tf.equal(self.predictions, self.input_y)
-            self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
+            # self.correct_num = tf.reduce_sum(tf.cast(correct_predictions, tf.float32))
             self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, tf.float32), name='accuracy')
 
     def normal_lstm(self):
